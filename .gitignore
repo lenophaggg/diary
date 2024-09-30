@@ -5,11 +5,6 @@
 *.userosscache
 *.sln.docstates
 
-# Ignore build directories
-bin/
-obj/
-
-
 
 # Ignore other temp files
 *.log
