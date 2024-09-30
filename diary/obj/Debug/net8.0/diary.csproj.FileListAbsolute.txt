@@ -797,3 +797,4 @@ C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\EPPlus.dll
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\EPPlus.Interfaces.dll
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\EPPlus.System.Drawing.dll
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\Microsoft.IO.RecyclableMemoryStream.dll
+C:\Users\user\Desktop\papka\diary\diary\obj\Debug\net8.0\diary.sourcelink.json

@@ -1,8 +1,42 @@
-version: '3.4'
+version: '3.8'
 
 services:
-  diary:
-    image: ${DOCKER_REGISTRY-}diary
+  db:
+    image: postgres:latest
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 228228228      
+    ports:
+      - "5488:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data      
+    networks:
+      - my_network
+      
+  web:
     build:
       context: .
-      dockerfile: diary/Dockerfile
+      dockerfile: Dockerfile
+    container_name: dotnet_app
+    environment:     
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__applicationDbContextConnection: Host=db;Port=5432;Database=interactiveboardentities;Username=postgres;Password=228228228
+      ConnectionStrings__diaryDbContextConnection: Host=db;Port=5432;Database=diaryentities;Username=postgres;Password=228228228
+      ConnectionStrings__DiaryIdentityDbContextConnection: Host=db;Port=5432;Database=diaryidentity;Username=postgres;Password=228228228
+    ports:
+      - "127.0.0.1:8080:8080"  #                                             
+    depends_on:
+      - db
+    networks:
+      - my_network
+    volumes:
+      - ./keys_data:/app/keys
+
+
+networks:
+  my_network:
+
+volumes:
+  postgres_data:
+  keys_data:  # Volume            Data Protection
