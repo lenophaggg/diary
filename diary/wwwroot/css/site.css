@@ -1,0 +1,160 @@
+﻿html,
+body {
+    width: 100%;
+    overflow-x: hidden;
+    /* Prevent horizontal overflow */
+    margin: 0;
+    /* Ensure no default margin */
+    padding: 0;
+    /* Ensure no default padding */
+}
+
+.btn:focus,
+.btn:active:focus,
+.btn-link.nav-link:focus,
+.form-control:focus,
+.form-check-input:focus {
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+}
+
+html {
+    font-size: 14px;
+    position: relative;
+    min-height: 100%;
+}
+
+@media (min-width: 768px) {
+    html {
+        font-size: 16px;
+    }
+}
+
+body {
+    margin-bottom: 60px;
+    display: flex;
+    width: 100%;
+    /* Ensure body does not exceed viewport width */
+    overflow-x: hidden;
+    /* Prevent horizontal overflow */
+    padding-top: 70px;
+    /* Adjust based on the header height */
+}
+
+.sidebar {
+
+    width: 250px;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    padding-top: 2rem;
+    transition: transform 0.3s ease;
+    transform: translateX(-100%);
+    z-index: 1000;
+    /* Ensure sidebar is above main content */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Center the content horizontally */
+}
+
+.sidebar.active {
+    transform: translateX(0);
+}
+
+.main-content {
+    flex-grow: 1;
+    padding: 1rem;
+    width: 100%;
+    transition: margin-left 0.3s ease;
+    overflow-x: hidden;
+    /* Ensure no horizontal scroll */
+}
+
+.toggle-button {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 2000;
+    /* Ensure button is above sidebar */
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.navbar-nav {
+    width: 100%;
+    /* Ensure navbar takes full width */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Center the nav items horizontally */
+}
+
+.nav-item {
+    width: 100%;
+    /* Ensure nav items take full width */
+    display: flex;
+    justify-content: center;
+    /* Center the nav links */
+    text-align: center;
+    padding-left: 15px;
+    /* Отступ слева */
+    padding-right: 15px;
+    /* Отступ справа */
+}
+
+.attendance-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    
+    background-color: #dc3545; /* Красный цвет для неотмеченного чекбокса */
+    border-color: #c82333; /* Темно-красный оттенок */
+   
+}
+
+    .attendance-checkbox:checked {
+        background-color: #198754; /* Зеленый цвет для отмеченного чекбокса */
+        border-color: #146c43; /* Темно-зеленый оттенок */
+    }
+
+    /* Стиль для неотмеченного чекбокса */
+    .attendance-checkbox:not(:checked) {
+        background-color: #dc3545; /* Красный цвет для неотмеченного чекбокса */
+        border-color: #c82333; /* Темно-красный оттенок */
+    }
+
+    /* Стиль для отключенного (disabled) отмеченного чекбокса */
+    .attendance-checkbox:checked:disabled {
+        background-color: #8fc897; /* Бледно-зеленый цвет для отключенного отмеченного чекбокса */
+        border-color: #6c8e63; /* Бледно-зеленый темный оттенок */
+        cursor: not-allowed;
+    }
+
+    /* Стиль для отключенного (disabled) неотмеченного чекбокса */
+    .attendance-checkbox:not(:checked):disabled {
+        background-color: #e99a9a; /* Бледно-красный цвет для отключенного неотмеченного чекбокса */
+        border-color: #c76868; /* Бледно-красный темный оттенок */
+        cursor: not-allowed;
+    }
+
+/* styles.css */
+.spinner {
+    margin: 0 auto;
+    border: 8px solid #f2f2f2; /* Light grey */
+    border-top: 8px solid #0d6efd; /* Blue */
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}

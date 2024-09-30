@@ -1,0 +1,91 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/diary.styles.css" asp-append-version="true" />
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+   
+</head>
+
+<body>
+
+    <header class="bg-white fixed-top d-flex border-bottom p-3">
+        @if (User.Identity.IsAuthenticated)
+        {
+            <div class="d-flex align-items-center">
+                <button class="btn btn-primary toggle-button me-3" id="toggleButton">☰</button>
+                <button class="btn btn-primary toggle-button me-3" id="closeButton" style="display:none;">✕</button>
+            </div>
+        }
+        else
+        {
+            <h2>👩🏻‍💻👩‍🏫👨🏻‍🏫📖👩🏻‍🎓</h2>
+        }
+
+        @await Component.InvokeAsync("Header")
+    </header>
+    @if (User.Identity.IsAuthenticated)
+    {
+        <nav class="sidebar navbar navbar-dark bg-dark border-end mt-5" id="sidebar">
+
+            <ul class="navbar-nav flex-column">
+                @if (User.IsInRole("Admin"))
+                {
+                    @await Component.InvokeAsync("AdminNavigation")
+                    <li class="nav-item nav-item-padded">
+                        <a class="nav-link text-light" asp-area="" asp-controller="Admin" asp-action="Index">Домашняя
+                            страница</a>
+                    </li>
+                }
+                @if (User.IsInRole("GroupHead"))
+                {
+                    @await Component.InvokeAsync("GroupHeadNavigation")
+                    <li class="nav-item nav-item-padded">
+                        <a class="nav-link text-light" asp-area="" asp-controller="GroupHead" asp-action="Index">Домашняя
+                            страница</a>
+                    </li>
+                }
+                @if (User.IsInRole("Teacher"))
+                {
+                    @await Component.InvokeAsync("TeacherNavigation")
+                    <li class="nav-item nav-item-padded">
+                        <a class="nav-link text-light" asp-area="" asp-controller="Teacher" asp-action="Index">Домашняя
+                            страница</a>
+                    </li>
+                }
+
+                <li class="nav-item nav-item-padded">
+                    <form method="post" asp-controller="Home" asp-action="Logout" class="d-inline">
+                        <button type="submit" class="btn btn-link nav-link text-light">Выйти</button>
+                    </form>
+                </li>
+            </ul>
+
+        </nav>
+    }
+
+    <div class="main-content" id="mainContent">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+        <footer class="border-top footer text-muted">
+            <div class="container">
+                &copy; 2024 - Электронный дневник -
+                <a asp-area="" asp-controller="Home" asp-action="Privacy">Политика конфиденциальности</a> 
+            </div>
+        </footer>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+
+</html>

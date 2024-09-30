@@ -1,0 +1,200 @@
+﻿@model diary.ViewModels.ManageAttendanceViewModel
+
+@{
+    ViewData["Title"] = "Manage Attendance";
+
+    // Приоритет учителя над администратором
+    bool isTeacher = User.IsInRole("Teacher");
+    bool isGroupHead = User.IsInRole("GroupHead");
+    bool isAdmin = User.IsInRole("Admin") && !isTeacher; // Админ, если не учитель
+}
+
+<div class="text-center py-4">
+    <h2>Посещаемость группы <span class="text-primary">@Model.GroupNuber</span> по предмету "@Model.SubjectName" (<span class="lesson-type" data-lesson-type="@Model.SubjectType"></span>)</h2>
+</div>
+
+@if(isAdmin || isTeacher)
+{
+    <div class="text-right mb-3">
+        <button type="button" class="btn btn-success" id="exportToExcel">
+            <i class="fas fa-file-excel"></i> Экспорт в Excel
+        </button>
+    </div>
+}
+
+<form method="post" id="attendanceForm">
+    <input type="hidden" name="ClassGroupId" value="@Model.ClassGroupId" />
+
+    <div class="table-responsive" style="overflow-x: auto; white-space: nowrap;">
+        <table class="table table-bordered" id="attendanceTable" style="table-layout: fixed; width: auto;">
+            <thead>
+                <tr>
+                    <th style="max-width: 400px; text-align: center; white-space: normal;">ФИО студента</th>
+                    @{
+                        var uniqueDatesSessions = Model.AttendanceRecords
+                        .GroupBy(a => new { a.Date, a.SessionNumber })
+                        .OrderBy(g => g.Key.Date)
+                        .ThenBy(g => g.Key.SessionNumber)
+                        .ToList();
+                    }
+
+                    @foreach (var group in uniqueDatesSessions)
+                    {
+                        var status = Model.AttendanceRecords
+                        .FirstOrDefault(a => a.Date == group.Key.Date && a.SessionNumber == group.Key.SessionNumber)?.Status;
+
+                        // Если пользователь администратор, то отображаем только записи со статусом ConfirmedByTeacher
+                        if (isAdmin && status != AttendanceStatus.ConfirmedByTeacher)
+                        {
+                            continue;
+                        }
+
+                        <th class="align-middle" style="min-width: 150px; max-width: 250px; text-align: center;" data-date="@group.Key.Date.ToString("yyyy-MM-dd")" data-session="@group.Key.SessionNumber">
+                            <div class="d-flex flex-column justify-content-center h-100">
+                                <div class="session-header">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        @group.Key.Date.ToShortDateString() / @group.Key.SessionNumber
+                                        @if (isTeacher)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-danger delete-attendance-column" style="width: 30px; height: 30px; margin-left: 10px;" data-date="@group.Key.Date.ToString("yyyy-MM-dd")" data-session="@group.Key.SessionNumber">-</button>
+                                        }
+                                    </div>
+                                    @if (status != AttendanceStatus.ConfirmedByTeacher && isTeacher)
+                                    {
+                                        <div class="text-danger">не подтверждено</div>
+                                    }
+                                    @if (isTeacher && status != AttendanceStatus.ConfirmedByGroupHead && status != AttendanceStatus.ConfirmedByTeacher)
+                                    {
+                                        <div class="mt-2">
+                                            <button type="button" class="btn btn-sm btn-primary submit-to-group-head w-100" data-date="@group.Key.Date.ToString("yyyy-MM-dd")" data-session="@group.Key.SessionNumber">
+                                                Отправить старосте
+                                            </button>
+                                        </div>
+                                    }
+                                    @if (isGroupHead && status == AttendanceStatus.Draft)
+                                    {
+                                        <div class="mt-2">
+                                            <button type="button" class="btn btn-sm btn-primary submit-to-teacher w-100" data-date="@group.Key.Date.ToString("yyyy-MM-dd")" data-session="@group.Key.SessionNumber">
+                                                Отправить преподавателю
+                                            </button>
+                                        </div>
+                                    }
+                                    @if (isTeacher)
+                                    {
+                                        <div class="mt-2">
+                                            <button type="button" class="btn btn-sm btn-secondary save-attendance w-100" data-date="@group.Key.Date.ToString("yyyy-MM-dd")" data-session="@group.Key.SessionNumber">
+                                                Сохранить
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </th>
+                    }
+                    @if (isTeacher)
+                    {
+                        <th style="min-width: 100px; max-width: 150px; text-align: center;">
+                            <div class="input-group" style="width: 100%;">
+                                <input type="date" id="newDateInput" class="form-control" style="max-width: 70%;" placeholder="Select Date" />
+                                <button type="button" id="addColumnButton" class="btn btn-outline-secondary" style="max-width: 30%;">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </th>
+                    }
+                    <th style="max-width: 150px; text-align: center;">Посещаемость</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var student in Model.Students)
+                {
+                    <tr>
+                        <td style="max-width: 400px; text-align: center; white-space: normal;" data-student-id="@student.StudentId">@student.Name</td>
+                        @{
+                            int confirmedCount = 0;
+                            int absenceCount = 0; // Количество пропусков по уважительной причине
+                        }
+                        @foreach (var group in uniqueDatesSessions)
+                        {
+                            var attendanceRecord = Model.AttendanceRecords
+                            .FirstOrDefault(a => a.StudentId == student.StudentId && a.Date == group.Key.Date && a.SessionNumber == group.Key.SessionNumber);
+
+                            // Админ видит только ConfirmedByTeacher
+                            if (isAdmin && attendanceRecord?.Status != AttendanceStatus.ConfirmedByTeacher)
+                            {
+                                continue;
+                            }
+
+                            <td style="min-width: 150px; max-width: 250px; text-align: center;">
+                                <input type="checkbox"
+                                       class="attendance-checkbox form-check-input"
+                                       data-student-id="@student.StudentId"
+                                       data-date="@group.Key.Date.ToString("yyyy-MM-dd")"
+                                       data-session-number="@group.Key.SessionNumber"
+                                       name="AttendanceRecords[@student.StudentId][@(group.Key.Date.ToString("yyyy-MM-dd"))][@group.Key.SessionNumber].IsPresent"
+                                @(attendanceRecord != null && attendanceRecord.IsPresent ? "checked" : "")
+                                @(attendanceRecord?.IsAbsence == true || isAdmin ? "disabled" : "")
+                                @(isGroupHead && (attendanceRecord?.Status == AttendanceStatus.ConfirmedByGroupHead || attendanceRecord?.Status == AttendanceStatus.ConfirmedByTeacher) ? "disabled" : "") />
+                            </td>
+
+                            if (attendanceRecord != null && attendanceRecord.IsPresent && attendanceRecord.Status == AttendanceStatus.ConfirmedByTeacher)
+                            {
+                                confirmedCount++;
+                            }
+
+                            if (attendanceRecord != null && attendanceRecord.IsAbsence)
+                            {
+                                absenceCount++;
+                            }
+                        }
+                        @if (isTeacher)
+                        {
+                            <td style="min-width: 100px; max-width: 150px; text-align: center;">
+                                <input type="checkbox"
+                                       class="attendance-checkbox form-check-input"
+                                       name="NewAttendanceRecords[@student.StudentId][newDate].IsPresent"
+                                       disabled />
+                            </td>
+                        }
+
+                        @{
+                            double totalClasses = Model.StudyDuration - absenceCount; // Общий расчет учитывает отсутствие
+                            double attendancePercentage = (totalClasses > 0) ? (double)confirmedCount / totalClasses * 100 : 0;
+                            string cellStyle = "background-color: #f8d7da;"; // Default to light danger for low attendance
+                        }
+
+                        @if (attendancePercentage >= 90)
+                        {
+                            cellStyle = "background-color: #d4edda;"; // Светло-зеленый фон для посещаемости >= 90%
+                        }
+                        else if (attendancePercentage >= 80)
+                        {
+                            cellStyle = "background-color: #fff3cd;"; // Светло-желтый фон для посещаемости >= 80%
+                        }
+                        else if (attendancePercentage >= 50)
+                        {
+                            cellStyle = "background-color: #e2e3e5;"; // Светло-серый фон для посещаемости >= 50%
+                        }
+
+                        <td class="text-center" style="max-width: 150px; @cellStyle">
+                            @confirmedCount / @Model.StudyDuration
+                            @if (absenceCount > 0)
+                            {
+                                <span class="text-success">-@absenceCount</span> <!-- Зелёный текст для пропусков по уважительной причине -->
+                            }
+                            (@Math.Round(attendancePercentage, 1) %)
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</form>
+
+<script src="~/js/ManageAttendance.js"></script>
+
+<script>
+    document.getElementById("exportToExcel").addEventListener("click", function () {
+        window.location.href = '@Url.Action("ExportToExcel", "Shared", new { classGroupId = Model.ClassGroupId })';
+    });
+</script>

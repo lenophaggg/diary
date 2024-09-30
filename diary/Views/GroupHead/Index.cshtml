@@ -1,0 +1,38 @@
+﻿@model StudentData
+
+@{
+    ViewData["Title"] = "Профиль старосты";
+}
+
+<head>
+    <title>User Profile</title>
+    <style>
+        /* Просто стилизация для примера */
+        .form-group {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Профиль старосты</h1>
+
+    <form action="/Profile/SaveProfile" method="post">
+
+        <div class="form-group">
+            <label for="UniversityStudentId">ISU ID</label>
+            <input type="text" id="UniversityStudentId" name="UniversityStudentId" value="@Model.UniversityStudentId"
+                class="form-control" />
+        </div>
+        <div class="form-group">
+            <label for="Name">ФИО</label>
+            <input type="text" id="Name" name="Name" value="@Model.Name" class="form-control" />
+        </div>
+        <div class="form-group">
+            <label for="GroupNumber">Группа</label>
+            <input type="text" id="GroupNumber" name="GroupNumber" value="@Model.GroupNumber" class="form-control" />
+        </div>
+        <!-- Другие поля, если необходимо -->
+
+    </form>
+</body>

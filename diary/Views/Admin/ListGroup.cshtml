@@ -1,0 +1,46 @@
+﻿@model Dictionary<string, string[]>
+
+@{
+    ViewData["Title"] = "List Group Page";
+}
+
+<style>
+    /* Добавление отступа между контейнерами */
+    .container+.container {
+        margin-top: 20px;
+        padding: 0px;
+    }
+
+    .schedule-item {
+        text-align: center;
+        padding: 10px;
+        border: 1px solid #ddd;
+        margin: 5px 0;
+        cursor: pointer;
+        background-color: transparent;
+        color: inherit;
+    }
+</style>
+
+@foreach (var facultySchedule in Model)
+{
+    <div class="container">
+        <h1 class="text-center">@facultySchedule.Key</h1>
+        <div class="row">
+            @if (facultySchedule.Value.Any())
+            {
+                foreach (var scheduleItem in facultySchedule.Value)
+                {
+                    <div class="col-6 col-md-3 col-lg-2">
+                        <a asp-action="GroupDetails" asp-route-id="@scheduleItem"
+                            class="btn btn-outline-light w-100 schedule-item fs-5">@scheduleItem</a>
+                    </div>
+                }
+            }
+            else
+            {
+                <p class="col-12">Нет данных о группах для данного факультета.</p>
+            }
+        </div>
+    </div>
+}

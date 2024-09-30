@@ -1,0 +1,126 @@
+﻿@model diary.ViewModels.GroupDetailsViewModel
+
+@{
+    ViewData["Title"] = "My Group";
+
+}
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12 text-center">
+            <h1 id="groupNumber" class="display-4">Группа <span class="text-primary">@Model.GroupNumber</span></h1>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            @if (Model.GroupHead != null)
+            {
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h2 class="card-title mb-0">Староста</h2>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text fs-4">@Model.GroupHead.Name</p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-warning mb-4" role="alert">
+                    Староста не назначен
+                </div>
+            }
+
+            <button class="btn btn-success" onclick="openAddStudentModal()">
+                <i class="fas fa-plus"></i> Добавить студента
+            </button>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h2 class="card-title mb-0">Список студентов</h2>
+                </div>
+                <div class="card-body">
+                    @if (Model.Students.Any())
+                    {
+                        <table class="table table-bordered">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th scope="col">ФИО</th>
+                                    <th scope="col">ISU ID</th>
+                                    <th scope="col">ФОТО</th>
+                                    <th scope="col"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var student in Model.Students)
+                                {
+                                    <tr>
+                                        <td>@student.Name</td>
+                                        <td>@student.UniversityStudentId</td>
+                                        <td>
+                                            <img src="https://isu.smtu.ru/images/isu_person/small/p@(student.UniversityStudentId).jpg"
+                                                alt="Student Photo" style="max-width: 100px; height: auto;">
+                                        </td>
+                                        <td style="width: 1%; white-space: nowrap;">
+                                            @if (student.StudentId != Model.GroupHead.StudentId)
+                                            {
+                                                <button class="btn btn-danger" onclick="removeStudent('@student.StudentId')">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning" role="alert">
+                            Студенты не найдены
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для добавления студента -->
+<div class="modal fade" id="addStudentModal" data-group-number="@Model.GroupNumber" tabindex="-1" role="dialog"
+    aria-labelledby="addStudentModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form id="addStudentForm">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addStudentModalLabel">Добавить студента</h5>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="studentName">ФИО студента:</label>
+                        <input type="text" id="studentName" name="studentName" class="form-control" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="universityStudentId">ISU ID студента:</label>
+                        <input type="text" id="universityStudentId" name="universityStudentId" class="form-control"
+                            required />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="addStudent()">Добавить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section scripts {
+    <script src="~/js/MyGroup.js"></script>
+}

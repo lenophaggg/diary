@@ -1,0 +1,16 @@
+# Ignore Visual Studio files
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Ignore build directories
+bin/
+obj/
+
+
+
+# Ignore other temp files
+*.log
+launchSettings.json

@@ -1,0 +1,140 @@
+﻿@model diary.ViewModels.StudentAbsenceViewModel
+
+@{
+    ViewData["Title"] = "Создание и редактирование заявки на отсутствие студента";
+}
+
+<div class="container mt-5">
+    <h3 class="text-center p-3">
+        Заявка на отсутствие студента по уважительной причине
+        @if (Model.AbsenceRequest.Status != null)
+        {
+            <span class="badge @GetStatusClass(Model.AbsenceRequest.Status)">@GetStatusInRussian(Model.AbsenceRequest.Status)</span>
+        }
+        else
+        {
+            <span class="badge text-primary font-weight-bold bg-light">Создание</span>
+        }
+    </h3>
+
+    @if (Model.AbsenceRequest.Status == AbsencesStatus.Submitted && User.IsInRole("Admin"))
+    {
+        <div class="text-center mb-4">
+            <button type="submit" form="editStudentAbsenceRequestForm" name="AbsenceRequest.Status" value="Approved" class="btn btn-success mr-2">Принять</button>
+            <button type="submit" form="editStudentAbsenceRequestForm" name="AbsenceRequest.Status" value="Rejected" class="btn btn-danger">Отклонить</button>
+        </div>
+    }
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <form id="editStudentAbsenceRequestForm" asp-action="UpdateStudentAbsenceStatus" method="post" class="needs-validation" novalidate>
+                <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+                <input type="hidden" id="StudentIdHidden" name="AbsenceRequest.StudentId" value="@Model.AbsenceRequest.StudentId" />
+
+                <input type="hidden" id="RequestIdHidden" name="AbsenceRequest.RequestId" value="@Model.AbsenceRequest.RequestId" />
+
+                <div class="form-group mb-3">
+                    <label asp-for="AbsenceRequest.StudentName" class="form-label">ФИО Студента</label>
+                    <input list="studentList" id="StudentName" name="AbsenceRequest.StudentName" class="form-control" required value="@Model.AbsenceRequest.StudentName" @(Model.CanEdit ? "" : "readonly") />
+                    <datalist id="studentList">
+                        @if (Model.Students != null)
+                        {
+                            @foreach (var student in Model.Students)
+                            {
+                                <option value="@student.Name" data-studentid="@student.StudentId"></option>
+                            }
+                        }
+                    </datalist>
+                    <div class="invalid-feedback">Введите корректные ФИО студента</div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="AbsenceRequest.GroupNumber" class="form-label">Группа</label>
+                    <input list="groupNumbers" id="groupNumber" name="AbsenceRequest.GroupNumber" class="form-control" required value="@Model.AbsenceRequest.GroupNumber" @(Model.CanEdit ? "" : "readonly") />
+                    
+                    <datalist id="groupNumbers">
+                        @foreach (var groupNumber in Model.GroupsNumbers)
+                        {
+                            <option value="@groupNumber"></option>
+                        }
+                    </datalist>
+                    <div class="invalid-feedback">Введите корректный номер группы</div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label asp-for="AbsenceRequest.Reason" class="form-label">Причина отсутствия</label>
+                    <input id="Reason" name="AbsenceRequest.Reason" class="form-control" required value="@Model.AbsenceRequest.Reason" @(Model.CanEdit ? "" : "readonly") />
+                    <span asp-validation-for="AbsenceRequest.Reason" class="text-danger"></span>
+                </div>
+
+                <div class="form-row mb-3">
+                    <div class="form-group col-md-6">
+                        <label asp-for="AbsenceRequest.StartDate" class="form-label">Дата начала</label>
+                        <input id="StartDate" name="AbsenceRequest.StartDate" class="form-control" type="date" required value="@Model.AbsenceRequest.StartDate.ToString("yyyy-MM-dd")" @(Model.CanEdit ? "" : "readonly") />
+                        <div class="invalid-feedback">Введите корректную дату начала</div>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label asp-for="AbsenceRequest.EndDate" class="form-label">Дата окончания</label>
+                        <input id="EndDate" name="AbsenceRequest.EndDate" class="form-control" type="date" required value="@Model.AbsenceRequest.EndDate.ToString("yyyy-MM-dd")" @(Model.CanEdit ? "" : "readonly") />
+                        <div class="invalid-feedback">Введите корректную дату окончания</div>
+                    </div>
+                </div>
+
+                @if (Model.CanEdit)
+                {
+                    <div class="form-group mt-4">
+                        <button type="submit" class="btn btn-primary mb-2">Сохранить заявку</button>
+                    </div>
+                }
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('StudentName').addEventListener('input', function (e) {
+        var studentList = document.getElementById('studentList');
+        var studentIdHidden = document.getElementById('StudentIdHidden');
+
+        for (var option of studentList.options) {
+            if (option.value === e.target.value) {
+                studentIdHidden.value = option.getAttribute('data-studentid');
+                break;
+            }
+        }
+    });
+</script>
+
+@functions {
+    string GetStatusClass(AbsencesStatus? status)
+    {
+        return status switch
+        {
+            AbsencesStatus.Submitted => "text-black font-weight-bold bg-light",
+            AbsencesStatus.Approved => "text-success font-weight-bold bg-success-light",
+            AbsencesStatus.Rejected => "text-danger font-weight-bold bg-danger-light",
+            _ => ""
+        };
+    }
+
+    string GetStatusInRussian(AbsencesStatus? status)
+    {
+        return status switch
+        {
+            AbsencesStatus.Submitted => "Отправлено",
+            AbsencesStatus.Approved => "Одобрено",
+            AbsencesStatus.Rejected => "Отклонено",
+            _ => ""
+        };
+    }
+}
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+   
+}
+

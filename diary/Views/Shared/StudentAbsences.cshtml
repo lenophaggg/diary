@@ -1,0 +1,45 @@
+﻿@model IEnumerable<diary.Models.StudentAbsencesData>
+
+@{
+    ViewData["Title"] = "Заявки на отсутствие студентов группы";
+}
+
+<div class="container-fluid mt-4">
+    <h1 class="text-center">
+        Заявки на отсутствие по уважительной причине студентов
+    </h1>
+
+    <div class="d-flex justify-content-between align-items-center">
+        <a href="@Url.Action("CreateStudentAbsenceRequest", "Shared")" class="btn btn-primary">
+            Создать новую заявку
+        </a>
+        <div>
+            <input type="checkbox" id="showSubmittedOnly" class="form-check-input" />
+            <label for="showSubmittedOnly" class="form-check-label">Показать только со статусом "Отправлено"</label>
+        </div>
+    </div>
+
+    <div class="table-responsive mt-2" id="absencesTableContainer">
+        @await Html.PartialAsync("_AbsencesTable", Model)
+    </div>
+</div>
+
+@section scripts {
+    <script>
+        document.getElementById("showSubmittedOnly").addEventListener("change", function () {
+            var showSubmittedOnly = this.checked;
+
+            $.ajax({
+                url: '@Url.Action("GetSubmittedAbsences", "Shared")',
+                type: 'GET',
+                data: { showSubmittedOnly: showSubmittedOnly },
+                success: function (data) {
+                    $('#absencesTableContainer').html(data);
+                },
+                error: function () {
+                    alert('Ошибка при фильтрации заявок.');
+                }
+            });
+        });
+    </script>
+}

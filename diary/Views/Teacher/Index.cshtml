@@ -1,0 +1,49 @@
+﻿@model PersonContactData
+@{
+    ViewData["Title"] = "Профиль преподавателя";
+}
+
+<head>
+    <title>Профиль преподавателя</title>
+    <style>
+        .form-group {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Профиль преподавателя</h1>
+    
+
+        <form action="/Profile/SaveProfile" method="post">
+         <div class="form-group">
+            <label for="UniversityIdContact">ISU ID</label>
+            <input type="text" id="UniversityIdContact" name="UniversityIdContact" value="@Model.UniversityIdContact" class="form-control" />
+        </div>
+            <div class="form-group">
+                <label for="FullName">ФИО</label>
+                <input type="text" id="FullName" name="FullName" value="@Model.NameContact" class="form-control" />
+            </div>
+            <div class="form-group">
+                <label for="Email">Email</label>
+                <input type="email" id="Email" name="Email" value="@Model.Email" class="form-control" />
+            </div>
+            <div class="form-group">
+                <label for="Phone">Телефон</label>
+                <input type="tel" id="Phone" name="Phone" value="@Model.Telephone" class="form-control" />
+            </div>
+            <div class="form-group">
+                <label for="Position">Должность</label>
+                <input type="text" id="Position" name="Position" value="@string.Join(", ", Model.Position ?? new string[]{})" class="form-control" />
+            </div>
+            <div class="form-group">
+                <label for="AcademicDegree">Академическая степень</label>
+                <input type="text" id="AcademicDegree" name="AcademicDegree" value="@Model.AcademicDegree" class="form-control" />
+            </div>
+            <div class="form-group">
+                <label for="TeachingExperience">Опыт преподавания</label>
+                <input type="text" id="TeachingExperience" name="TeachingExperience" value="@Model.TeachingExperience" class="form-control" />
+            </div>
+        </form>
+        
+</body>

@@ -1,0 +1,147 @@
+﻿@model dynamic
+
+@{
+    ViewData["Title"] = "Group Head Details";
+}
+
+<div class="container mt-5">
+    <div class="row mb-4">
+        <h3 class="text-primary text-center">Информация о старосте группы:</h3>
+        <div class="col-md-4">
+            <img src="https://isu.smtu.ru/images/isu_person/small/p@(Model.UniversityStudentId).jpg" alt="Group Head Image" class="img-fluid rounded" style="height: 80%;">
+        </div>
+        <div class="col-md-8">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong class="text-secondary">ID:</strong> @Model.StudentId</p>
+                    <p><strong class="text-secondary">University ID:</strong> @Model.UniversityStudentId</p>
+                    <p><strong class="text-secondary">ФИО:</strong> @Model.Name</p>
+                    <p><strong class="text-secondary">Группа:</strong> @Model.GroupNumber</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong class="text-secondary">Имя пользователя:</strong> @Model.UserName</p>
+                    <p><strong class="text-secondary">Роли:</strong> @string.Join(", ", @Model.UserRoles)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.UserId != null)
+    {
+        <div class="mt-4">
+            <h3>Присвоенный пользователь</h3>
+            <table class="table table-responsive">
+                <thead class="table-primary">
+                    <tr>
+                        <th>Имя</th>
+                        <th>Роли</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>@Model.UserName</td>
+                        <td>
+                            <span id="userRoles">@string.Join(", ", @Model.UserRoles)</span>
+                            <button class="btn btn-secondary ml-2" onclick="openRoleModal('@Model.UserId')">Изменить роли</button>
+                        </td>
+                        <td class="align-middle">
+                            <button class="btn btn-danger" onclick="deleteUser('@Model.UserId', '@Model.StudentId', 'GroupHead')">&times;</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+       <button type="button" class="btn btn-primary" onclick="openAssignUserModal('@Model.StudentId', 'GroupHead')">
+            Создать пользователя
+        </button>
+    }
+</div>
+
+<!-- Модальное окно для назначения пользователя -->
+<div class="modal fade" id="assignUserModal" tabindex="-1" role="dialog" aria-labelledby="assignUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form id="assignUserForm">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="assignUserModalLabel">Создание пользователя для старосты группы</h5>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="personContactId" name="personContactId" />
+                    <input type="hidden" id="contactType" name="contactType" />
+
+                    <div class="form-group">
+                        <label for="userName">Имя пользователя:</label>
+                        <input type="text" id="userName" name="userName" class="form-control" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Пароль:</label>
+                        <div class="input-group">
+                            <input id="password" name="password" class="form-control" required readonly />
+                            <div class="input-group-append">
+                                <button type="button" class="btn btn-outline-secondary" onclick="generatePassword()">Сгенерировать пароль</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="userRoles">Роли пользователя:</label>
+                        <div id="userRoles">
+                            @foreach (var role in Model.Roles)
+                            {
+                                <span class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="@role.Name" id="role_@role.Name" name="userRoles" />
+                                    <label class="form-check-label" for="role_@role.Name">
+                                        @role.Name
+                                    </label>
+                                </span>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="assignUser()">Создать и присвоить пользователя</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для изменения ролей пользователя -->
+<div class="modal fade" id="roleModal" tabindex="-1" role="dialog" aria-labelledby="roleModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form id="roleForm">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="roleModalLabel">Изменить роли пользователя</h5>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editUserId" name="editUserId" />
+
+                    <input type="hidden" id="contactType" name="contactType" /> 
+                    <div class="form-group">
+                        <label for="editRoles">Роли пользователя:</label>
+                        <div id="editRoles">
+                            @foreach (var role in Model.Roles)
+                            {
+                                <span class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="@role.Name" id="editRole_@role.Name" name="editRoles" />
+                                    <label class="form-check-label" for="editRole_@role.Name">
+                                        @role.Name
+                                    </label>
+                                </span>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="updateRoles()">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="~/js/GroupHeadDetails.js"></script>
