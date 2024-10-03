@@ -20,7 +20,7 @@ namespace diary
             builder.Services.AddHostedService<TypeWeekDownloadService>();
 
             builder.Services.AddDataProtection()
-                .PersistKeysToFileSystem(new DirectoryInfo(@"/app/keys"));  // Папка для ключей
+    .PersistKeysToFileSystem(new DirectoryInfo("/app/keys"));
 
 
             builder.Services.AddDbContext<ApplicationDbContext>(options =>

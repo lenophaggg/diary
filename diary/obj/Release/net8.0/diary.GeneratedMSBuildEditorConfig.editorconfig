@@ -1,11 +1,19 @@
 is_global = true
 build_property.TargetFramework = net8.0
+build_property.TargetFramework = net8.0
+build_property.TargetPlatformMinVersion = 
 build_property.TargetPlatformMinVersion = 
 build_property.UsingMicrosoftNETSdkWeb = true
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.ProjectTypeGuids = 
 build_property.ProjectTypeGuids = 
 build_property.InvariantGlobalization = 
+build_property.InvariantGlobalization = 
+build_property.PlatformNeutralAssembly = 
 build_property.PlatformNeutralAssembly = 
 build_property.EnforceExtendedAnalyzerRules = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = diary
 build_property.RootNamespace = diary
@@ -66,12 +74,8 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cVGVhY2hlckRldGFpbHMuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/user/Desktop/papka/diary/diary/Views/GroupHead/Classes.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcR3JvdXBIZWFkXENsYXNzZXMuY3NodG1s
-build_metadata.AdditionalFiles.CssScope = 
-
-[C:/Users/user/Desktop/papka/diary/diary/Views/GroupHead/GroupHeadManageAttendance.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcR3JvdXBIZWFkXEdyb3VwSGVhZE1hbmFnZUF0dGVuZGFuY2UuY3NodG1s
+[C:/Users/user/Desktop/papka/diary/diary/Views/Admin/_TeachersTable.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQWRtaW5cX1RlYWNoZXJzVGFibGUuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/user/Desktop/papka/diary/diary/Views/GroupHead/Index.cshtml]
@@ -80,10 +84,6 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Users/user/Desktop/papka/diary/diary/Views/GroupHead/MyGroup.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcR3JvdXBIZWFkXE15R3JvdXAuY3NodG1s
-build_metadata.AdditionalFiles.CssScope = 
-
-[C:/Users/user/Desktop/papka/diary/diary/Views/GroupHead/StudentAbsences.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcR3JvdXBIZWFkXFN0dWRlbnRBYnNlbmNlcy5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/user/Desktop/papka/diary/diary/Views/Home/AccessDenied.cshtml]
@@ -100,6 +100,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/Users/user/Desktop/papka/diary/diary/Views/Home/Privacy.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxQcml2YWN5LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/user/Desktop/papka/diary/diary/Views/Shared/Classes.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXENsYXNzZXMuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/user/Desktop/papka/diary/diary/Views/Shared/Components/AdminNavigation/Default.cshtml]
@@ -126,6 +130,22 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXEVycm9yLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/user/Desktop/papka/diary/diary/Views/Shared/ManageAttendance.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXE1hbmFnZUF0dGVuZGFuY2UuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/user/Desktop/papka/diary/diary/Views/Shared/StudentAbsences.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXFN0dWRlbnRBYnNlbmNlcy5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/user/Desktop/papka/diary/diary/Views/Shared/StudentAbsencesDetails.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXFN0dWRlbnRBYnNlbmNlc0RldGFpbHMuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/user/Desktop/papka/diary/diary/Views/Shared/_AbsencesTable.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9BYnNlbmNlc1RhYmxlLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/user/Desktop/papka/diary/diary/Views/Shared/_LoginPartial.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9Mb2dpblBhcnRpYWwuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
@@ -134,16 +154,12 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9WYWxpZGF0aW9uU2NyaXB0c1BhcnRpYWwuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/user/Desktop/papka/diary/diary/Views/Teacher/ClassDetails.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVGVhY2hlclxDbGFzc0RldGFpbHMuY3NodG1s
-build_metadata.AdditionalFiles.CssScope = 
-
-[C:/Users/user/Desktop/papka/diary/diary/Views/Teacher/Classes.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVGVhY2hlclxDbGFzc2VzLmNzaHRtbA==
-build_metadata.AdditionalFiles.CssScope = 
-
 [C:/Users/user/Desktop/papka/diary/diary/Views/Teacher/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVGVhY2hlclxJbmRleC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/user/Desktop/papka/diary/diary/Views/Teacher/ListClasses.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcVGVhY2hlclxMaXN0Q2xhc3Nlcy5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/user/Desktop/papka/diary/diary/Views/Teacher/ManageAttendance.cshtml]

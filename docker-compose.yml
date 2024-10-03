@@ -1,6 +1,30 @@
 version: '3.8'
 
 services:
+  app:
+    build:
+      context: .  
+      dockerfile: Dockerfile
+    container_name: dotnet_app
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ASPNETCORE_HTTPS_PORTS=8081
+      - ConnectionStrings__applicationDbContextConnection=Host=db;Port=5432;Database=interactiveboardentities;Username=postgres;Password=228228228
+      - ConnectionStrings__diaryDbContextConnection=Host=db;Port=5432;Database=diaryentities;Username=postgres;Password=228228228
+      - ConnectionStrings__DiaryIdentityDbContextConnection=Host=db;Port=5432;Database=diaryidentity;Username=postgres;Password=228228228
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    depends_on:
+      - db
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
+      - ./keys_data:/app/keys
+    networks:
+      - my_network
+
   db:
     image: postgres:latest
     container_name: postgres_db
@@ -10,33 +34,13 @@ services:
     ports:
       - "5488:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data      
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - my_network
-      
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: dotnet_app
-    environment:     
-      ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__applicationDbContextConnection: Host=db;Port=5432;Database=interactiveboardentities;Username=postgres;Password=228228228
-      ConnectionStrings__diaryDbContextConnection: Host=db;Port=5432;Database=diaryentities;Username=postgres;Password=228228228
-      ConnectionStrings__DiaryIdentityDbContextConnection: Host=db;Port=5432;Database=diaryidentity;Username=postgres;Password=228228228
-    ports:
-      - "127.0.0.1:8080:8080"  #                                             
-    depends_on:
-      - db
-    networks:
-      - my_network
-    volumes:
-      - ./keys_data:/app/keys
-
 
 networks:
   my_network:
 
 volumes:
   postgres_data:
-  keys_data:  # Volume            Data Protection
+  keys_data:
