@@ -364,7 +364,9 @@ namespace diary.Controllers
 
             var facultyGroups = groups
                 .Where(g => g.FacultyName != null) // Добавляем проверку на null
+                .OrderBy(g => g.Number) // Сортируем группы по номеру
                 .GroupBy(g => g.FacultyName)
+                .OrderByDescending(g => g.Key) // Сортируем факультеты в обратном порядке
                 .ToDictionary(g => g.Key, g => g.Select(group => group.Number).ToArray());
 
             return View(facultyGroups);

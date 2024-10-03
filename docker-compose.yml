@@ -1,40 +1,37 @@
 version: '3.8'
 
 services:
-  app:
+  diary:
     build:
-      context: .  
+      context: .
       dockerfile: Dockerfile
     container_name: dotnet_app
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
       - ASPNETCORE_HTTPS_PORTS=8081
-      - ConnectionStrings__applicationDbContextConnection=Host=db;Port=5432;Database=interactiveboardentities;Username=postgres;Password=228228228
-      - ConnectionStrings__diaryDbContextConnection=Host=db;Port=5432;Database=diaryentities;Username=postgres;Password=228228228
-      - ConnectionStrings__DiaryIdentityDbContextConnection=Host=db;Port=5432;Database=diaryidentity;Username=postgres;Password=228228228
     ports:
       - "8080:8080"
       - "8081:8081"
-    depends_on:
-      - db
     volumes:
       - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
       - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
-      - ./keys_data:/app/keys
     networks:
       - my_network
+    depends_on:
+      - db
 
   db:
     image: postgres:latest
     container_name: postgres_db
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 228228228      
+      POSTGRES_PASSWORD: 228228228
     ports:
-      - "5488:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
     networks:
       - my_network
 

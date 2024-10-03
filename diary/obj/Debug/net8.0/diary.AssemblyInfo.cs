@@ -16,7 +16,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("diary")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+10ec51a30d4eb89e0c3a1f666203b9c545f716ab")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d8e031fd6f85de729654bda97b4debd10e26ddf0")]
 [assembly: System.Reflection.AssemblyProductAttribute("diary")]
 [assembly: System.Reflection.AssemblyTitleAttribute("diary")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
