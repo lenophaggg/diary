@@ -59,23 +59,23 @@ namespace diary.Controllers
             var user = await _userManager.FindByNameAsync(model.Login);
             if (user == null)
             {
-                ModelState.AddModelError("", "Неверный логин или пароль.");
+                ModelState.AddModelError("", "Invalid login or password.");
                 return View(model);
             }
 
-            // Проверяем, заблокирован ли пользователь
+            // Check if the user is locked out
             if (await _userManager.IsLockedOutAsync(user))
             {
-                ModelState.AddModelError("", "Ваша учетная запись заблокирована. Попробуйте снова через 3 минуты.");
+                ModelState.AddModelError("", "Your account is locked. Try again in 3 minutes.");
                 return View(model);
             }
 
-            // Попытка входа с блокировкой при неудачных попытках
+            // Attempt to sign in with lockout on failure
             var signInResult = await _signInManager.PasswordSignInAsync(user.UserName, model.Password, model.RememberMe, lockoutOnFailure: true);
 
             if (signInResult.Succeeded)
             {
-                // Проверка ролей пользователя и перенаправление
+                // Check user roles and redirect accordingly
                 if (await _userManager.IsInRoleAsync(user, "Admin"))
                 {
                     return RedirectToAction("Index", "Admin");
@@ -94,22 +94,22 @@ namespace diary.Controllers
                 }
             }
 
-            // Проверяем, был ли пользователь заблокирован
+            // Check if the user was locked out
             if (signInResult.IsLockedOut)
             {
-                ModelState.AddModelError("", "Ваша учетная запись заблокирована.");
+                ModelState.AddModelError("", "Your account is locked.");
             }
             else if (signInResult.IsNotAllowed)
             {
-                ModelState.AddModelError("", "Вход в систему запрещен.");
+                ModelState.AddModelError("", "Sign-in is not allowed.");
             }
             else if (signInResult.RequiresTwoFactor)
             {
-                ModelState.AddModelError("", "Требуется двухфакторная аутентификация.");
+                ModelState.AddModelError("", "Two-factor authentication is required.");
             }
             else
             {
-                ModelState.AddModelError("", "Неверный логин или пароль.");
+                ModelState.AddModelError("", "Invalid login or password.");
             }
 
             return View(model);
