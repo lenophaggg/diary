@@ -16,4 +16,10 @@ WORKDIR /app
 
 COPY --from=publish /app/publish .
 
+<<<<<<< HEAD:diary/Dockerfile
+=======
+EXPOSE 8080
+EXPOSE 8081
+
+>>>>>>> 4bae6fef3638e403f1d017b22ce6b669759087b8:Dockerfile
 ENTRYPOINT ["dotnet", "diary.dll"]
