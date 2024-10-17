@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using System.Drawing;
+using diary.Enums;
 
 namespace diary.Controllers
 {
@@ -86,6 +87,87 @@ namespace diary.Controllers
             }
 
             return await query.ToListAsync();
+        }
+
+        [Authorize(Roles = "Admin, GroupHead")]
+        [HttpPost]
+        public async Task<IActionResult> RemoveStudent(int studentId)
+        {
+            var curUser = await _userManager.GetUserAsync(User);
+            if (curUser == null)
+            {
+                return Unauthorized();
+            }
+
+            var student = await _diaryDbContext.Students.FindAsync(studentId);
+            if (student == null)
+            {
+                return NotFound("Student not found");
+            }
+
+            using (var transaction = await _diaryDbContext.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    // Delete StudentAbsencesData
+                    var studentAbsences = await _diaryDbContext.StudentAbsences
+                        .Where(sa => sa.StudentId == studentId)
+                        .ToListAsync();
+                    _diaryDbContext.StudentAbsences.RemoveRange(studentAbsences);
+
+                    // Delete AttendanceData
+                    var attendanceEntries = await _diaryDbContext.Attendance
+                        .Where(a => a.StudentId == studentId)
+                        .ToListAsync();
+                    _diaryDbContext.Attendance.RemoveRange(attendanceEntries);
+
+                    // Check if the student is a GroupHead
+                    var groupHead = await _diaryDbContext.GroupHeads
+                        .FirstOrDefaultAsync(gh => gh.StudentId == studentId);
+                    if (groupHead != null)
+                    {
+                        var userId = groupHead.UserId;
+
+                        // Remove GroupHeadData entry
+                        _diaryDbContext.GroupHeads.Remove(groupHead);
+
+                        // Find and remove PersonContactUserData
+                        var personContactUser = await _diaryDbContext.PersonContactUsers
+                            .FirstOrDefaultAsync(pcu => pcu.UserId == userId);
+                        if (personContactUser != null)
+                        {
+                            _diaryDbContext.PersonContactUsers.Remove(personContactUser);
+                        }
+
+                        // Delete the IdentityUser
+                        var user = await _userManager.FindByIdAsync(userId);
+                        if (user != null)
+                        {
+                            var result = await _userManager.DeleteAsync(user);
+                            if (!result.Succeeded)
+                            {
+                                throw new Exception("Failed to delete associated user.");
+                            }
+                        }
+                    }
+
+                    // Remove the Student
+                    _diaryDbContext.Students.Remove(student);
+
+                    // Save changes
+                    await _diaryDbContext.SaveChangesAsync();
+
+                    // Commit transaction
+                    await transaction.CommitAsync();
+
+                    return Json(new { success = true });
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    return Json(new { success = false, message = "Ошибка при удалении студента." });
+                }
+            }
         }
 
         // Метод создания заявки на отсутсвие по уважительной причине
@@ -265,6 +347,7 @@ namespace diary.Controllers
             return RedirectToAction("StudentAbsences");
         }
 
+        [Authorize(Roles = "Admin, GroupHead")]
         public async Task<IActionResult> Classes()
         {
             var user = await _userManager.GetUserAsync(User);
@@ -273,57 +356,214 @@ namespace diary.Controllers
                 return Unauthorized();
             }
 
-            // Проверка на роль преподавателя
-            if (User.IsInRole("Teacher"))
-            {
-                var instructorId = await _diaryDbContext.PersonContactUsers
-                    .Where(pcu => pcu.UserId == user.Id)
-                    .Select(pcu => pcu.PersonContactId)
-                    .FirstOrDefaultAsync();
-
-                if (instructorId == 0)
-                {
-                    return BadRequest(new { success = false, message = "Instructor not found" });
-                }
-
-                var ClassViewItems = await _diaryDbContext.ClassGroupAssignments
-                    .Where(cga => cga.Class.InstructorId == instructorId)
-                    .Include(cga => cga.Class)
-                    .ToListAsync();
-
-                var instructor = await _applicationDbContext.PersonContacts
-                    .Where(pc => pc.IdContact == instructorId)
-                    .Select(pc => new { pc.NameContact })
-                    .FirstOrDefaultAsync();
-
-                ViewBag.UserRole = "Instructor";
-                ViewBag.InstructorName = $"{instructor.NameContact}";
-
-                return View("~/Views/Shared/Classes.cshtml",
-                    new ClassViewModel()
-                    {
-                        ClassGroupAssignments = ClassViewItems,
-                        GroupsNumbers = await _applicationDbContext.Groups.Select(g => g.Number).ToListAsync()
-                    });
-            }
+            List<ClassViewItem> classViewItems;
+            string groupNumber = null;
 
             if (User.IsInRole("Admin"))
-            {                
-                var classViewItems = await _diaryDbContext.ClassGroupAssignments
-                    .Include(cga => cga.Class)
-                    .ToListAsync();
+            {
+                var classes = await _diaryDbContext.Classes.ToListAsync();
+
+                var instructorIds = classes.Select(c => c.InstructorId).Distinct().ToList();
+
+                var instructors = await _applicationDbContext.PersonContacts
+                    .Where(pc => instructorIds.Contains(pc.IdContact))
+                    .ToDictionaryAsync(pc => pc.IdContact, pc => pc.NameContact);
+
+                classViewItems = classes.Select(c => new ClassViewItem
+                {
+                    ClassId = c.ClassId,
+                    Subject = c.Subject,
+                    Semester = c.Semester,
+                    AcademicYear = c.AcademicYear,
+                    Type = c.Type,
+                    GroupNumber = c.GroupNumber,
+                    InstructorName = instructors.ContainsKey(c.InstructorId) ? instructors[c.InstructorId] : "Неизвестно"
+                }).ToList();
 
                 ViewBag.UserRole = "Admin";
-
-                return View("~/Views/Shared/Classes.cshtml",
-                    new ClassViewModel()
-                    {
-                        ClassGroupAssignments = classViewItems
-                    });
             }
-            
+            else if (User.IsInRole("GroupHead"))
+            {
+                var groupHead = await _diaryDbContext.GroupHeads
+                    .Include(gh => gh.Student)
+                    .FirstOrDefaultAsync(gh => gh.UserId == user.Id);
+
+                if (groupHead == null)
+                {
+                    return NotFound("Староста не найден");
+                }
+
+                groupNumber = groupHead.Student.GroupNumber;
+
+                var classes = await _diaryDbContext.Classes
+                    .Where(c => c.GroupNumber == groupNumber)
+                    .ToListAsync();
+
+                var instructorIds = classes.Select(c => c.InstructorId).Distinct().ToList();
+
+                var instructors = await _applicationDbContext.PersonContacts
+                    .Where(pc => instructorIds.Contains(pc.IdContact))
+                    .ToDictionaryAsync(pc => pc.IdContact, pc => pc.NameContact);
+
+                classViewItems = classes.Select(c => new ClassViewItem
+                {
+                    ClassId = c.ClassId,
+                    Subject = c.Subject,
+                    Semester = c.Semester,
+                    AcademicYear = c.AcademicYear,
+                    Type = c.Type,
+                    GroupNumber = c.GroupNumber,
+                    InstructorName = instructors.ContainsKey(c.InstructorId) ? instructors[c.InstructorId] : "Неизвестно"
+                }).ToList();
+
+                ViewBag.UserRole = "GroupHead";
+                ViewBag.GroupNumber = groupNumber;
+            }
+            else
+            {
+                return BadRequest(new { success = false, message = "User role not found" });
+            }
+
+            return View(new ClassViewModel
+            {
+                Classes = classViewItems
+            });
+        }
+
+        [Authorize(Roles = "Admin, GroupHead")]
+        [HttpGet]
+        public async Task<IActionResult> FilterClasses(string groupNumber)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            List<ClassData> classes;
+
+            if (User.IsInRole("Admin"))
+            {
+                if (string.IsNullOrEmpty(groupNumber))
+                {
+                    classes = await _diaryDbContext.Classes.ToListAsync();
+                }
+                else
+                {
+                    classes = await _diaryDbContext.Classes
+                        .Where(c => c.GroupNumber == groupNumber)
+                        .ToListAsync();
+                }
+            }
+            else if (User.IsInRole("GroupHead"))
+            {
+                var groupHead = await _diaryDbContext.GroupHeads
+                    .Include(gh => gh.Student)
+                    .FirstOrDefaultAsync(gh => gh.UserId == user.Id);
+
+                if (groupHead == null)
+                {
+                    return NotFound("Староста не найден");
+                }
+
+                groupNumber = groupHead.Student.GroupNumber;
+
+                classes = await _diaryDbContext.Classes
+                    .Where(c => c.GroupNumber == groupNumber)
+                    .ToListAsync();
+            }
+            else
+            {
+                return Unauthorized();
+            }
+
+            var instructorIds = classes.Select(c => c.InstructorId).Distinct().ToList();
+
+            var instructors = await _applicationDbContext.PersonContacts
+                .Where(pc => instructorIds.Contains(pc.IdContact))
+                .ToDictionaryAsync(pc => pc.IdContact, pc => pc.NameContact);
+
+            var classViewItems = classes.Select(c => new ClassViewItem
+            {
+                ClassId = c.ClassId,
+                Subject = c.Subject,
+                Semester = c.Semester,
+                AcademicYear = c.AcademicYear,
+                Type = c.Type,
+                GroupNumber = c.GroupNumber,
+                InstructorName = instructors.ContainsKey(c.InstructorId) ? instructors[c.InstructorId] : "Неизвестно"
+            }).ToList();
+
+            return PartialView("_ClassesTable", classViewItems);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetClass(int classId)
+        {
+            var classData = await _diaryDbContext.Classes
+                .Where(c => c.ClassId == classId)
+                .Select(c => new
+                {
+                    classId = c.ClassId,
+                    subject = c.Subject,
+                    semester = c.Semester,
+                    academicYear = c.AcademicYear,
+                    lessonType = c.Type.ToString(),
+                    instructorId = c.InstructorId,
+                    groupNumber = c.GroupNumber
+                })
+                .FirstOrDefaultAsync();
+
+            if (classData == null)
+            {
+                return NotFound();
+            }
+
+            var instructor = await _applicationDbContext.PersonContacts
+                .FirstOrDefaultAsync(pc => pc.IdContact == classData.instructorId);
+
+            var instructorName = instructor?.NameContact ?? "";
+
+            return Json(new
+            {
+                classId = classData.classId,
+                subject = classData.subject,
+                semester = classData.semester,
+                academicYear = classData.academicYear,
+                lessonType = classData.lessonType,
+                instructorName = instructorName,
+                groupNumber = classData.groupNumber
+            });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateClass(string subjectName, int semester, string academicYear, string lessonType, string instructorName, string groupNumber)
+        {
+            subjectName = subjectName.Trim();
+            academicYear = academicYear.Trim();
+
+            var instructor = await _applicationDbContext.PersonContacts
+                .FirstOrDefaultAsync(pc => pc.NameContact == instructorName);
+
+            if (instructor == null)
+            {
+                return BadRequest(new { success = false, message = "Преподаватель не найден" });
+            }
+
+            if (!Enum.TryParse(lessonType, true, out LessonType parsedLessonType))
+            {
+                return BadRequest(new { success = false, message = "Invalid lesson type" });
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
             if (User.IsInRole("GroupHead"))
             {
+                // Получаем номер группы старосты
                 var groupHead = await _diaryDbContext.GroupHeads
                     .Include(gh => gh.Student)
                     .FirstOrDefaultAsync(gh => gh.UserId == user.Id);
@@ -333,30 +573,144 @@ namespace diary.Controllers
                     return NotFound("Group head not found");
                 }
 
-                var groupNumber = groupHead.Student.GroupNumber;
-
-                var ClassViewItems = await _diaryDbContext.ClassGroupAssignments
-                    .Where(cga => cga.GroupNumber == groupNumber)
-                    .Include(cga => cga.Class)
-                    .ToListAsync();
-
-                ViewBag.UserRole = "GroupHead";
-                ViewBag.GroupNumber = groupNumber;
-
-                return View("~/Views/Shared/Classes.cshtml"
-                    , new ClassViewModel()
-                    {
-                        ClassGroupAssignments = ClassViewItems
-
-                    });
+                groupNumber = groupHead.Student.GroupNumber;
             }
 
-            return BadRequest(new { success = false, message = "User role not found" });
+            var existingClass = await _diaryDbContext.Classes
+                .FirstOrDefaultAsync(c => c.Subject == subjectName
+                    && c.InstructorId == instructor.IdContact
+                    && c.Type == parsedLessonType
+                    && c.GroupNumber == groupNumber);
+
+            if (existingClass != null)
+            {
+                return BadRequest(new { success = false, message = "Такое занятие уже существует!" });
+            }
+
+            var newClass = new ClassData
+            {
+                Subject = subjectName,
+                InstructorId = instructor.IdContact,
+                GroupNumber = groupNumber,
+                Semester = semester,
+                AcademicYear = academicYear,
+                Type = parsedLessonType
+            };
+
+            _diaryDbContext.Classes.Add(newClass);
+            await _diaryDbContext.SaveChangesAsync();
+
+            return Json(new { success = true });
         }
 
-        [Authorize(Roles = "Teacher, GroupHead, Admin")]
-        // Открытие представления с управлением посещаемостью
-        public async Task<IActionResult> ManageAttendance(int classGroupId)
+        [HttpPost]
+        public async Task<IActionResult> UpdateClass(int classId, string subjectName, int semester, string academicYear, string lessonType, string instructorName, string groupNumber)
+        {
+            var existingClass = await _diaryDbContext.Classes.FindAsync(classId);
+            if (existingClass == null)
+            {
+                return NotFound(new { success = false, message = "Занятие не найдено" });
+            }
+
+            existingClass.Subject = subjectName;
+            existingClass.Semester = semester;
+            existingClass.AcademicYear = academicYear;
+
+            if (!Enum.TryParse(lessonType, true, out LessonType parsedLessonType))
+            {
+                return BadRequest(new { success = false, message = "Неправильный тип занятия" });
+            }
+
+            existingClass.Type = parsedLessonType;
+
+            var instructor = await _applicationDbContext.PersonContacts
+                .FirstOrDefaultAsync(pc => pc.NameContact == instructorName);
+
+            if (instructor == null)
+            {
+                return BadRequest(new { success = false, message = "Преподаватель не найден" });
+            }
+
+            existingClass.InstructorId = instructor.IdContact;
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            if (User.IsInRole("GroupHead"))
+            {
+                // Староста не может изменять номер группы
+                var groupHead = await _diaryDbContext.GroupHeads
+                    .Include(gh => gh.Student)
+                    .FirstOrDefaultAsync(gh => gh.UserId == user.Id);
+
+                if (groupHead == null)
+                {
+                    return NotFound("Group head not found");
+                }
+
+                existingClass.GroupNumber = groupHead.Student.GroupNumber;
+            }
+            else if (User.IsInRole("Admin"))
+            {
+                // Администратор может изменять номер группы
+                existingClass.GroupNumber = groupNumber;
+            }
+
+            _diaryDbContext.Classes.Update(existingClass);
+            await _diaryDbContext.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> DeleteClass(int classId)
+        {
+            var classEntity = await _diaryDbContext.Classes.FindAsync(classId);
+            if (classEntity == null)
+            {
+                return Json(new { success = false, message = "Занятие не найдено." });
+            }
+
+            var attendanceRecords = await _diaryDbContext.Attendance
+                .Where(a => a.ClassId == classEntity.ClassId)
+                .ToListAsync();
+
+            if (attendanceRecords.Any())
+            {
+                _diaryDbContext.Attendance.RemoveRange(attendanceRecords);
+            }
+
+            _diaryDbContext.Classes.Remove(classEntity);
+            await _diaryDbContext.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetInstructors()
+        {
+            try
+            {
+                var instructors = await _applicationDbContext.PersonContacts
+                    .Select(pc => new
+                    {
+                        idContact = pc.IdContact,
+                        nameContact = pc.NameContact
+                    })
+                    .ToListAsync();
+
+                return Json(instructors);
+            }
+            catch
+            {
+                return StatusCode(500, new { success = false, message = "Ошибка при получении списка преподавателей" });
+            }
+        }
+
+        public async Task<IActionResult> ManageAttendance(int classId)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
@@ -364,27 +718,25 @@ namespace diary.Controllers
                 return Unauthorized();
             }
 
-            if (classGroupId == 0)
+            if (classId == 0)
             {
-                return RedirectToAction(User.IsInRole("Teacher") ? "Index" : "Index", User.IsInRole("Teacher") ? "Teacher" : "GroupHead");
+                return RedirectToAction("Index", User.IsInRole("Teacher") ? "Teacher" : "GroupHead");
             }
 
-
-            var classData = await _diaryDbContext.ClassGroupAssignments
-                .Include(cga => cga.Class)
-                .FirstOrDefaultAsync(a => a.ClassGroupId == classGroupId);
+            var classData = await _diaryDbContext.Classes
+                .FirstOrDefaultAsync(a => a.ClassId == classId);
 
             if (classData == null)
             {
                 return NotFound("Class not found");
             }
-                        
+
             var students = await _diaryDbContext.Students
                 .Where(s => s.GroupNumber == classData.GroupNumber)
                 .ToListAsync();
 
             var attendanceRecords = await _diaryDbContext.Attendance
-                .Where(a => a.ClassGroupId == classData.ClassGroupId)
+                .Where(a => a.ClassId == classData.ClassId)
                 .ToListAsync();
 
             var orderedAttendanceRecords = attendanceRecords
@@ -392,43 +744,136 @@ namespace diary.Controllers
                 .ThenBy(a => a.SessionNumber)
                 .ToList();
 
+            // Вычисляем TotalClasses на основе уникальных сессий (дата + номер сессии)
+            int totalClasses = attendanceRecords
+                .Select(a => new { a.Date, a.SessionNumber })
+                .Distinct()
+                .Count();
+
             var viewModel = new ManageAttendanceViewModel
             {
-                ClassGroupId = classGroupId,
-                SubjectName = classData.Class.Subject,
-                SubjectType = classData.Class.Type.ToString(),
+                ClassId = classId,
+                SubjectName = classData.Subject,
+                SubjectType = classData.Type.ToString(),
                 Students = students,
-                GroupNuber = classData.GroupNumber,
-                StudyDuration = classData.Class.StudyDuration,
-                AttendanceRecords = orderedAttendanceRecords 
+                GroupNumber = classData.GroupNumber,
+                AttendanceRecords = orderedAttendanceRecords,
+                TotalClasses = totalClasses // Устанавливаем TotalClasses здесь
             };
 
-            return View(viewModel);
+            return View("ManageAttendance", viewModel);
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Admin, GroupHead")]
+        public async Task<IActionResult> SaveAttendance([FromBody] List<AttendanceData> attendanceData)
+        {
+            if (attendanceData == null || !attendanceData.Any())
+            {
+                return BadRequest("Данные посещаемости не были предоставлены.");
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            using (var transaction = await _diaryDbContext.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    foreach (var record in attendanceData)
+                    {
+                        var classData = await _diaryDbContext.Classes
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(c => c.ClassId == record.ClassId);
+
+                        if (classData == null)
+                        {
+                            _logger.LogWarning($"Занятие с ID {record.ClassId} не найдено.");
+                            continue;
+                        }
+
+                        var groupNumber = classData.GroupNumber;
+                        var recordDateAsDateTime = record.Date.ToDateTime(TimeOnly.MinValue);
+
+                        bool isExcusedAbsence = await _diaryDbContext.StudentAbsences
+                            .AnyAsync(sa => sa.StudentId == record.StudentId
+                                        && sa.GroupNumber == groupNumber
+                                        && sa.Status == AbsencesStatus.Approved
+                                        && sa.StartDate <= recordDateAsDateTime
+                                        && sa.EndDate >= recordDateAsDateTime);
+
+                        bool isPresent = record.IsPresent;
+                        if (isExcusedAbsence && isPresent)
+                        {
+                            isPresent = false;
+                        }
+
+                        var existingRecord = await _diaryDbContext.Attendance
+                            .FirstOrDefaultAsync(a => a.ClassId == record.ClassId
+                                                   && a.StudentId == record.StudentId
+                                                   && a.Date == record.Date
+                                                   && a.SessionNumber == record.SessionNumber);
+
+                        if (existingRecord != null)
+                        {
+                            existingRecord.IsPresent = isPresent;
+                            existingRecord.IsExcusedAbsence = isExcusedAbsence;
+
+                            _diaryDbContext.Attendance.Update(existingRecord);
+                        }
+                        else
+                        {
+                            var newRecord = new AttendanceData
+                            {
+                                ClassId = record.ClassId,
+                                StudentId = record.StudentId,
+                                Date = record.Date,
+                                SessionNumber = record.SessionNumber,
+                                IsPresent = isPresent,
+                                IsExcusedAbsence = isExcusedAbsence
+                            };
+                            await _diaryDbContext.Attendance.AddAsync(newRecord);
+                        }
+                    }
+
+                    await _diaryDbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    return Ok(new { success = true });
+                }
+                catch (System.Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Ошибка при сохранении посещаемости");
+                    return StatusCode(500, "Произошла ошибка при сохранении посещаемости.");
+                }
+            }
         }
 
         [Authorize(Roles = "Teacher, Admin")]
         [HttpGet]
-        public async Task<IActionResult> ExportToExcel(int classGroupId)
+        public async Task<IActionResult> ExportToExcel(int classId)
         {
-            var classData = await _diaryDbContext.ClassGroupAssignments
-                .Include(c => c.Class)
-                .FirstOrDefaultAsync(cga => cga.ClassGroupId == classGroupId);
-
-            var instructorName = await _applicationDbContext.PersonContacts
-                 .Where(pc => pc.IdContact == classData.Class.InstructorId)
-                 .Select(pc => pc.NameContact)
-                 .FirstOrDefaultAsync();
-
+            var classData = await _diaryDbContext.Classes
+                .FirstOrDefaultAsync(c => c.ClassId == classId);
 
             if (classData == null)
             {
                 return NotFound("Class not found");
             }
 
+            var instructorName = await _applicationDbContext.PersonContacts
+                 .Where(pc => pc.IdContact == classData.InstructorId)
+                 .Select(pc => pc.NameContact)
+                 .FirstOrDefaultAsync();
+
             var attendanceData = await _diaryDbContext.Attendance
-               .Where(a => a.ClassGroupId == classGroupId && a.Status == AttendanceStatus.ConfirmedByTeacher)
+               .Where(a => a.ClassId == classId)
                .Include(a => a.Student)
-               .Include(a => a.ClassGroup)
+               .Include(a => a.Class)
                .ToListAsync();
 
             var uniqueDatesSessions = attendanceData
@@ -448,9 +893,9 @@ namespace diary.Controllers
         { "consultations", "Консультации" }
     };
 
-            var translatedType = lessonTypes.ContainsKey(classData.Class.Type.ToString().ToLower())
-                ? lessonTypes[classData.Class.Type.ToString().ToLower()]
-                : classData.Class.Type.ToString();
+            var translatedType = lessonTypes.ContainsKey(classData.Type.ToString().ToLower())
+                ? lessonTypes[classData.Type.ToString().ToLower()]
+                : classData.Type.ToString();
 
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
@@ -459,11 +904,11 @@ namespace diary.Controllers
                 var worksheet = package.Workbook.Worksheets.Add("Attendance");
 
                 // Заголовок таблицы
-                worksheet.Cells[1, 1].Value = $"Посещаемость группы {classData.GroupNumber} по предмету \"{classData.Class.Subject}\" ({translatedType}) преподавателя {instructorName}";
+                worksheet.Cells[1, 1].Value = $"Посещаемость группы {classData.GroupNumber} по предмету \"{classData.Subject}\" ({translatedType}) преподавателя {instructorName}";
                 worksheet.Cells[1, 1, 1, uniqueDatesSessions.Count + 1].Merge = true;
                 worksheet.Cells[1, 1].Style.Font.Bold = true;
                 worksheet.Cells[1, 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
-                worksheet.Cells[1, 1].Style.Font.Size = 14; // Увеличим шрифт заголовка
+                worksheet.Cells[1, 1].Style.Font.Size = 14;
 
                 // Заголовки столбцов
                 worksheet.Cells[2, 1].Value = "ФИО студента";
@@ -500,26 +945,26 @@ namespace diary.Controllers
                                 cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
                                 cell.Style.Fill.BackgroundColor.SetColor(Color.LightGreen);
                             }
-                            else if (attendanceRecord.IsAbsence)
+                            else if (attendanceRecord.IsExcusedAbsence)
                             {
                                 // Уважительная причина
                                 cell.Value = "Отсутствие (уваж.)";
                                 cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
-                                cell.Style.Fill.BackgroundColor.SetColor(Color.LightYellow); // Цвет для уважительной причины
+                                cell.Style.Fill.BackgroundColor.SetColor(Color.LightYellow);
                             }
                             else
                             {
                                 // Неуважительное отсутствие
                                 cell.Value = "Отсутствует";
                                 cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
-                                cell.Style.Fill.BackgroundColor.SetColor(Color.LightCoral); // Цвет для обычного отсутствия
+                                cell.Style.Fill.BackgroundColor.SetColor(Color.LightCoral);
                             }
                         }
                         else
                         {
-                            cell.Value = "Отсутствие";
+                            cell.Value = "Нет данных";
                             cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
-                            cell.Style.Fill.BackgroundColor.SetColor(Color.LightBlue); // Цвет, если запись отсутствует
+                            cell.Style.Fill.BackgroundColor.SetColor(Color.LightGray);
                         }
                     }
                 }
@@ -535,16 +980,17 @@ namespace diary.Controllers
                 worksheet.Cells[2, 1, 2, uniqueDatesSessions.Count + 1].AutoFilter = true;
 
                 // Настроим ширину столбцов
-                worksheet.Column(1).Width = 35; // Ширина для ФИО студента
+                worksheet.Column(1).Width = 35;
                 for (int i = 2; i <= uniqueDatesSessions.Count + 1; i++)
                 {
                     worksheet.Column(i).Width = 20;
                 }
-                               
-                var fileName = $"{classData.GroupNumber}_{classData.Class.Subject.Replace(' ', '_')}_{translatedType.Replace(' ', '_')}_{instructorName.Replace(' ', '_')}.xlsx";
+
+                var fileName = $"{classData.GroupNumber}_{classData.Subject.Replace(' ', '_')}_{translatedType.Replace(' ', '_')}_{instructorName.Replace(' ', '_')}.xlsx";
                 var excelBytes = package.GetAsByteArray();
                 return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
         }
+
     }
 }

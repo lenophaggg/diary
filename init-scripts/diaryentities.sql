@@ -2,12 +2,11 @@
 -- PostgreSQL database dump
 --
 
+CREATE DATABASE diaryentities;
+\c diaryentities;
+
 -- Dumped from database version 16.4
 -- Dumped by pg_dump version 16.4
-
-CREATE DATABASE diaryentities;
-
-\c diaryentities;
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -31,12 +30,11 @@ SET default_table_access_method = heap;
 CREATE TABLE public.attendance (
     attendanceid integer NOT NULL,
     studentid integer NOT NULL,
+    classid integer NOT NULL,
     date date NOT NULL,
     ispresent boolean NOT NULL,
-    status integer NOT NULL,
-    sessionnumber integer DEFAULT 1 NOT NULL,
-    isabsence boolean,
-    class_group_id integer
+    isexcusedabsence boolean NOT NULL,
+    sessionnumber integer NOT NULL
 );
 
 
@@ -65,52 +63,17 @@ ALTER SEQUENCE public.attendance_attendanceid_seq OWNED BY public.attendance.att
 
 
 --
--- Name: class_group_assignment; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.class_group_assignment (
-    class_group_id integer NOT NULL,
-    classid integer NOT NULL,
-    groupnumber character varying(6)
-);
-
-
-ALTER TABLE public.class_group_assignment OWNER TO postgres;
-
---
--- Name: class_group_assignment_class_group_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.class_group_assignment_class_group_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.class_group_assignment_class_group_id_seq OWNER TO postgres;
-
---
--- Name: class_group_assignment_class_group_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.class_group_assignment_class_group_id_seq OWNED BY public.class_group_assignment.class_group_id;
-
-
---
 -- Name: classes; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public.classes (
     classid integer NOT NULL,
-    subjectname character varying(255),
-    instructorid integer,
-    studyduration double precision,
-    semester integer,
-    academicyear character varying(255),
-    typelesson integer
+    subjectname character varying(255) NOT NULL,
+    instructorid integer NOT NULL,
+    groupnumber character varying(255) NOT NULL,
+    semester integer NOT NULL,
+    academicyear character varying(255) NOT NULL,
+    typelesson integer NOT NULL
 );
 
 
@@ -306,13 +269,6 @@ ALTER TABLE ONLY public.attendance ALTER COLUMN attendanceid SET DEFAULT nextval
 
 
 --
--- Name: class_group_assignment class_group_id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.class_group_assignment ALTER COLUMN class_group_id SET DEFAULT nextval('public.class_group_assignment_class_group_id_seq'::regclass);
-
-
---
 -- Name: classes classid; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -351,15 +307,7 @@ ALTER TABLE ONLY public.students ALTER COLUMN studentid SET DEFAULT nextval('pub
 -- Data for Name: attendance; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.attendance (attendanceid, studentid, date, ispresent, status, sessionnumber, isabsence, class_group_id) FROM stdin;
-\.
-
-
---
--- Data for Name: class_group_assignment; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.class_group_assignment (class_group_id, classid, groupnumber) FROM stdin;
+COPY public.attendance (attendanceid, studentid, classid, date, ispresent, isexcusedabsence, sessionnumber) FROM stdin;
 \.
 
 
@@ -367,7 +315,7 @@ COPY public.class_group_assignment (class_group_id, classid, groupnumber) FROM s
 -- Data for Name: classes; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.classes (classid, subjectname, instructorid, studyduration, semester, academicyear, typelesson) FROM stdin;
+COPY public.classes (classid, subjectname, instructorid, groupnumber, semester, academicyear, typelesson) FROM stdin;
 \.
 
 
@@ -412,13 +360,6 @@ SELECT pg_catalog.setval('public.attendance_attendanceid_seq', 1, false);
 
 
 --
--- Name: class_group_assignment_class_group_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.class_group_assignment_class_group_id_seq', 1, false);
-
-
---
 -- Name: classes_classid_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -443,7 +384,7 @@ SELECT pg_catalog.setval('public.groupheads_groupheadid_seq', 1, false);
 -- Name: person_contact_users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.person_contact_users_id_seq', 6, true);
+SELECT pg_catalog.setval('public.person_contact_users_id_seq', 8, true);
 
 
 --
@@ -466,14 +407,6 @@ SELECT pg_catalog.setval('public.students_studentid_seq', 1, false);
 
 ALTER TABLE ONLY public.attendance
     ADD CONSTRAINT attendance_pkey PRIMARY KEY (attendanceid);
-
-
---
--- Name: class_group_assignment class_group_assignment_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.class_group_assignment
-    ADD CONSTRAINT class_group_assignment_pkey PRIMARY KEY (class_group_id);
 
 
 --
@@ -517,27 +450,19 @@ ALTER TABLE ONLY public.students
 
 
 --
+-- Name: attendance attendance_classid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.attendance
+    ADD CONSTRAINT attendance_classid_fkey FOREIGN KEY (classid) REFERENCES public.classes(classid);
+
+
+--
 -- Name: attendance attendance_studentid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.attendance
     ADD CONSTRAINT attendance_studentid_fkey FOREIGN KEY (studentid) REFERENCES public.students(studentid);
-
-
---
--- Name: class_group_assignment class_group_assignment_classid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.class_group_assignment
-    ADD CONSTRAINT class_group_assignment_classid_fkey FOREIGN KEY (classid) REFERENCES public.classes(classid);
-
-
---
--- Name: attendance fk_attendance_class_group; Type: FK CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.attendance
-    ADD CONSTRAINT fk_attendance_class_group FOREIGN KEY (class_group_id) REFERENCES public.class_group_assignment(class_group_id);
 
 
 --

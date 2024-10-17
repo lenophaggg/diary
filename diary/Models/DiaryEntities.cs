@@ -32,8 +32,6 @@ namespace diary.Models
         [Column("universitystudentid")]
         public string UniversityStudentId { get; set; }
 
-
-
         [Column("name")]
         public string Name { get; set; }
 
@@ -57,8 +55,7 @@ namespace diary.Models
         public StudentData Student { get; set; }
 
         [Column("userid")]
-        public string? UserId { get; set; }
-        public IdentityUser User { get; set; }
+        public string? UserId { get; set; }       
     }
 
     [PrimaryKey("ClassId")]
@@ -77,8 +74,8 @@ namespace diary.Models
         [Column("instructorid")]
         public int InstructorId { get; set; }
 
-        [Column("studyduration")]
-        public double StudyDuration { get; set; }
+        [Column("groupnumber")]
+        public string GroupNumber { get; set; }
 
         [Column("semester")]
         public int Semester { get; set; }
@@ -88,10 +85,7 @@ namespace diary.Models
 
         [Column("typelesson")]
         public LessonType Type { get; set; }
-
-        
     }
-
 
     [PrimaryKey("AttendanceId")]
     [Table("attendance")]
@@ -108,11 +102,11 @@ namespace diary.Models
         [ForeignKey("StudentId")]
         public StudentData Student { get; set; }
 
-        [Column("class_group_id")]
-        public int ClassGroupId { get; set; }
+        [Column("classid")]
+        public int ClassId { get; set; }
 
-        [ForeignKey("ClassGroupId")]
-        public ClassGroupAssignmentData ClassGroup { get; set; }   
+        [ForeignKey("ClassId")]
+        public ClassData Class { get; set; }   
 
         [Column("date")]
         public DateOnly Date { get; set; } // Используем DateOnly для работы только с датами
@@ -120,22 +114,12 @@ namespace diary.Models
         [Column("ispresent")]
         public bool IsPresent { get; set; }
 
-        [Column("isabsence")]
-        public bool IsAbsence { get; set; }
-
-        [Column("status")]
-        public AttendanceStatus Status { get; set; } // Новый флаг для статуса отметки
+        [Column("isexcusedabsence")]
+        public bool IsExcusedAbsence { get; set; }
 
         [Column("sessionnumber")]
         public int SessionNumber { get; set; } // Новое поле для номера пары
     }
-
-    public enum AttendanceStatus
-    {
-        Draft,              // Черновик, создается преподавателем
-        ConfirmedByGroupHead,  // Отправлено старосте
-        ConfirmedByTeacher     // Подтверждено преподавателем
-    }    
 
     [Table("student_absences")]
     public class StudentAbsencesData
@@ -173,22 +157,5 @@ namespace diary.Models
         Rejected
     }
 
-    [Table("class_group_assignment")]
-    // Занятия по группам, которые ведет преподаватель
-    public class ClassGroupAssignmentData
-    {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        [Column("class_group_id")]
-        public int ClassGroupId { get; set; }
-
-        [Column("classid")]
-        public int ClassId { get; set; }
-
-        [ForeignKey("ClassId")]
-        public ClassData Class { get; set; }
-
-        [Column("groupnumber")]
-        public string GroupNumber { get; set; }
-    }
+    
 }

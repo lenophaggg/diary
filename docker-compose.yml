@@ -4,41 +4,19 @@ services:
   diary:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: diary/Dockerfile 
     container_name: dotnet_app
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_HTTP_PORTS=8080
       - ASPNETCORE_HTTPS_PORTS=8081
-    ports:
-      - "8080:8080"
-      - "8081:8081"
+      - ConnectionStrings__applicationDbContextConnection=Host=db;Database=interactiveboardentities;Username=postgres;Password=228228228
+      - ConnectionStrings__diaryDbContextConnection=Host=db;Database=diaryentities;Username=postgres;Password=228228228
+      - ConnectionStrings__DiaryIdentityDbContextConnection=Host=db;Database=diaryidentity;Username=postgres;Password=228228228
     volumes:
       - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
-      - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
-      - ./keys_data:/app/keys
-    networks:
-      - my_network
-    depends_on:
-      - db
-
-  db:
-    image: postgres:latest
-    container_name: postgres_db
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 228228228
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d
     networks:
       - my_network
 
 networks:
   my_network:
-
-volumes:
-  postgres_data:
-  keys_data:
+    external: true

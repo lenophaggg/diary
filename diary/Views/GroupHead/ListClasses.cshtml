@@ -1,14 +1,14 @@
-﻿@model IEnumerable<diary.Models.ClassData>
+﻿@model IEnumerable<dynamic>
 
 @{
-    ViewData["Title"] = $"Список предметов для {ViewBag.InstructorName}";
+    ViewData["Title"] = $"Список предметов для {ViewBag.GroupNumber}";
 }
 
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
 <div class="container-fluid mt-4">
-    <h1 class="text-center">Список предметов под руководством <span class="text-primary">@ViewBag.InstructorName</span></h1>
+    <h1 class="text-center">Список предметов группы <span class="text-primary">@ViewBag.GroupNumber</span></h1>
 
     <div class="mb-3">
         <button type="button" class="btn btn-success" onclick="openCreateClassModal()">Добавить предмет</button>
@@ -25,6 +25,7 @@
                 <thead class="thead-dark">
                     <tr>
                         <th>Предмет</th>
+                        <th>Преподаватель</th>
                         <th>Семестр</th>
                         <th>Учебный год</th>
                         <th>Тип занятия</th>
@@ -36,7 +37,8 @@
                     @foreach (var classData in Model)
                     {
                         <tr>
-                            <td>@classData.Subject</td>
+                            <td>@(string.IsNullOrEmpty(classData.Subject) ? "Не указано" : classData.Subject)</td>
+                            <td>@(string.IsNullOrEmpty(classData.InstructorName) ? "Не указано" : classData.InstructorName)</td>
                             <td>@classData.Semester</td>
                             <td>@classData.AcademicYear</td>
                             <td class="lesson-type" data-lesson-type="@classData.Type"></td>
@@ -47,7 +49,7 @@
                                         <i class="fas fa-edit"></i> Редактировать
                                     </button>
                                     <button type="button" class="btn btn-danger" onclick="deleteClass(@classData.ClassId)">
-                                        <i class="fas fa-trash-alt"></i> 
+                                        <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </div>
                             </td>
@@ -58,6 +60,7 @@
         </div>
     }
 </div>
+
 
 <!-- Модальное окно для создания/редактирования занятия -->
 <div class="modal fade" id="createClassModal" tabindex="-1" aria-labelledby="createClassModalLabel" aria-hidden="true">
@@ -76,6 +79,17 @@
                         <input type="text" class="form-control" id="subjectName" name="subjectName" required />
                         <div class="invalid-feedback">Введите название предмета</div>
                     </div>
+
+                    <div class="mb-3">
+                        <label for="instructorName" class="form-label">ФИО Преподавателя</label>
+                        <!-- datalist to choose from available instructors -->
+                        <input list="instructorList" class="form-control" id="instructorName" name="instructorName" required />
+                        <datalist id="instructorList">
+                            <!-- Instructor options will be dynamically populated by JavaScript -->
+                        </datalist>
+                        <div class="invalid-feedback">Выберите преподавателя</div>
+                    </div>
+
                     <div class="mb-3">
                         <label for="studyDuration" class="form-label">Продолжительность обучения (часы)</label>
                         <input type="number" class="form-control" id="studyDuration" name="studyDuration" required placeholder="52" />

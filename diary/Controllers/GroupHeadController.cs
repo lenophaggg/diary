@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using diary.ViewModels;
 using diary.Models;
 using Azure.Core;
+using diary.Enums;
 
 namespace diary.Controllers
 {
@@ -51,6 +52,193 @@ namespace diary.Controllers
                 .FirstOrDefaultAsync(s => s.StudentId == groupHeadUser.StudentId);
 
             return View(studentGroupHead);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetInstructors()
+        {
+            try
+            {
+                // Fetch all instructors from the PersonContacts table
+                var instructors = await _applicationDbContext.PersonContacts
+                    .Select(pc => new
+                    {
+                        idContact = pc.IdContact,          // Instructor ID
+                        nameContact = pc.NameContact       // Instructor name
+                    })
+                    .ToListAsync();
+
+                // Return the list of instructors as JSON
+                return Json(instructors);
+            }
+            catch (Exception ex)
+            {
+                // Handle any errors and return a server error response
+                return StatusCode(500, new { success = false, message = "Ошибка при получении списка преподавателей" });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateClass(string subjectName, double studyDuration, int semester, string academicYear, string lessonType)
+        {
+            subjectName = subjectName.Trim();
+            academicYear = academicYear.Trim();
+
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            // Получаем id преподавателя из базы данных
+            var dbInstructorId = await _diaryDbContext.PersonContactUsers
+                .Where(pcu => pcu.UserId == user.Id)
+                .Select(pcu => pcu.PersonContactId)
+                .FirstOrDefaultAsync();
+
+            if (dbInstructorId == 0)
+            {
+                return BadRequest(new { success = false, message = "Instructor not found" });
+            }
+
+            if (!Enum.TryParse(lessonType, true, out LessonType parsedLessonType))
+            {
+                return BadRequest(new { success = false, message = "Invalid lesson type" });
+            }
+
+            // Проверка на существование аналогичного класса
+            var existingClass = await _diaryDbContext.Classes
+                .FirstOrDefaultAsync(c => c.Subject == subjectName
+                    && c.InstructorId == dbInstructorId
+                    && c.Type == parsedLessonType);
+
+            if (existingClass != null)
+            {
+                return BadRequest(new { success = false, message = "Такое занятие уже существует!" });
+            }
+
+            var newClass = new ClassData
+            {
+                Subject = subjectName,
+                InstructorId = dbInstructorId,
+                Semester = semester,
+                AcademicYear = academicYear,
+                Type = parsedLessonType
+            };
+
+            _diaryDbContext.Classes.Add(newClass);
+            await _diaryDbContext.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetClass(int classId)
+        {
+            // Get class data from DiaryDbContext
+            var classData = await _diaryDbContext.Classes
+                .Where(c => c.ClassId == classId)
+                .Select(c => new
+                {
+                    classId = c.ClassId,
+                    subject = c.Subject,
+                    semester = c.Semester,
+                    academicYear = c.AcademicYear,
+                    lessonType = c.Type.ToString(),
+                    instructorId = c.InstructorId
+                })
+                .FirstOrDefaultAsync();
+
+            if (classData == null)
+            {
+                return NotFound();
+            }
+
+            // Get instructor's name from ApplicationDbContext
+            var instructor = await _applicationDbContext.PersonContacts
+                .FirstOrDefaultAsync(pc => pc.IdContact == classData.instructorId);
+
+            var instructorName = instructor?.NameContact ?? "";
+
+            // Return combined result
+            return Json(new
+            {
+                classId = classData.classId,
+                subject = classData.subject,
+                semester = classData.semester,
+                academicYear = classData.academicYear,
+                lessonType = classData.lessonType,
+                instructorName = instructorName
+            });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdateClass(int classId, string subjectName, double studyDuration, int semester, string academicYear, string lessonType)
+        {
+            var existingClass = await _diaryDbContext.Classes.FindAsync(classId);
+            if (existingClass == null)
+            {
+                return NotFound(new { success = false, message = "Занятие не найдено" });
+            }
+
+            existingClass.Subject = subjectName;
+            existingClass.Semester = semester;
+            existingClass.AcademicYear = academicYear;
+
+            if (!Enum.TryParse(lessonType, true, out LessonType parsedLessonType))
+            {
+                return BadRequest(new { success = false, message = "Неправильный тип занятия" });
+            }
+
+            existingClass.Type = parsedLessonType;
+
+            _diaryDbContext.Classes.Update(existingClass);
+            await _diaryDbContext.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
+        public async Task<IActionResult> ListClasses()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            var groupHead = await _diaryDbContext.GroupHeads
+              .Include(gh => gh.Student)
+              .FirstOrDefaultAsync(gh => gh.UserId == user.Id);
+
+            if (groupHead == null)
+            {
+                return NotFound("Group head not found");
+            }
+
+            var groupNumber = groupHead.Student.GroupNumber;
+
+            var groupClasses = await _diaryDbContext.Classes
+                .Where(c => c.GroupNumber == groupNumber)             
+                .ToListAsync();
+
+           var instructors = await _applicationDbContext
+                .PersonContacts
+                .ToListAsync();
+
+            var classWithInstructors = groupClasses.Select(c => new
+            {
+                ClassId = c.ClassId,
+                Subject = c.Subject,
+                InstructorName = instructors.FirstOrDefault(instr => instr.IdContact == c.InstructorId)?.NameContact ?? "No Instructor Assigned",
+                Semester = c.Semester,
+                AcademicYear = c.AcademicYear,
+                Type = c.Type, // Lesson type (for data-lesson-type attribute)
+            }).ToList();
+
+            ViewBag.GroupNumber = $"{groupNumber}";
+
+            // Pass the data to the view
+            return View(classWithInstructors);
         }
 
         // Метод отображения карточки группы, к которой принадлежит староста
@@ -177,15 +365,15 @@ namespace diary.Controllers
             foreach (var record in attendanceData)
             {
                 var existingRecord = await _diaryDbContext.Attendance
-                    .Include(a => a.ClassGroup)
-                    .FirstOrDefaultAsync(a => a.ClassGroupId == record.ClassGroupId
+                    .Include(a => a.Class)
+                    .FirstOrDefaultAsync(a => a.ClassId == record.ClassId
                                            && a.StudentId == record.StudentId
                                            && a.Date == record.Date
                                            && a.SessionNumber == record.SessionNumber);
 
                 if (existingRecord != null)
                 {                    
-                    var classGroupNumber = existingRecord.ClassGroup.GroupNumber;
+                    var classGroupNumber = existingRecord.Class.GroupNumber;
 
                     bool isAbsent = await _diaryDbContext.StudentAbsences
                         .AnyAsync(sa => sa.StudentId == record.StudentId
@@ -203,8 +391,8 @@ namespace diary.Controllers
 
                     // Обновляем значения IsPresent и IsAbsence в зависимости от данных об отсутствии
                     existingRecord.IsPresent = isPresent;
-                    existingRecord.IsAbsence = isAbsent;
-                    existingRecord.Status = AttendanceStatus.ConfirmedByGroupHead;
+                    existingRecord.IsExcusedAbsence = isAbsent;
+                   
                 }
             }
 

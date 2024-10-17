@@ -2,12 +2,11 @@
 -- PostgreSQL database dump
 --
 
+CREATE DATABASE diaryidentity;
+\c diaryidentity;
+
 -- Dumped from database version 16.4
 -- Dumped by pg_dump version 16.4
-
-CREATE DATABASE diaryidentity;
-
-\c diaryidentity;
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -201,7 +200,6 @@ COPY public."AspNetUserLogins" ("LoginProvider", "ProviderKey", "ProviderDisplay
 COPY public."AspNetUserRoles" ("UserId", "RoleId") FROM stdin;
 63bd0607-cdd2-4a89-a558-ba2c08cb03f9	ddfd3046-f21c-40a4-af48-00ea5eb315e3
 a8649950-2381-485c-82a4-d415247e169c	ddfd3046-f21c-40a4-af48-00ea5eb315e3
-a8649950-2381-485c-82a4-d415247e169c	729f890a-321e-4bf3-a9ff-7895a26c198f
 \.
 
 
@@ -218,8 +216,8 @@ COPY public."AspNetUserTokens" ("UserId", "LoginProvider", "Name", "Value") FROM
 --
 
 COPY public."AspNetUsers" ("Id", "UserName", "NormalizedUserName", "Email", "NormalizedEmail", "EmailConfirmed", "PasswordHash", "SecurityStamp", "ConcurrencyStamp", "PhoneNumber", "PhoneNumberConfirmed", "TwoFactorEnabled", "LockoutEnd", "LockoutEnabled", "AccessFailedCount") FROM stdin;
+a8649950-2381-485c-82a4-d415247e169c	sofi_teacher	SOFI_TEACHER	\N	\N	f	AQAAAAIAAYagAAAAEMMQXKbgP74zSexLZkm7Jrj7mLOfJaWbgAdS4o5sr+eBzjMPXaf8DHK9AuXiyXuiug==	HS3SIRKPNDFJSHJSZVXA7V6BHJF23Y7Q	cd5f33f2-2854-4c42-a2b2-884004ee02b5	\N	f	f	\N	t	0
 63bd0607-cdd2-4a89-a558-ba2c08cb03f9	admin	ADMIN	\N	\N	f	AQAAAAIAAYagAAAAENIgPs/mhqVVcGeo6UdkiRz+NBLxcyN4i7py1NWqEoN15itHoM7BH49cUkYTFIuqmQ==	BPIDD3OAFLJBKWKFAJDWF3STMVSYAYFJ	c6cbf1bf-7e81-4c1a-b034-4bccc7f8444e	\N	f	f	2024-09-05 20:08:28.636369+03	t	0
-a8649950-2381-485c-82a4-d415247e169c	sofi_teacher	SOFI_TEACHER	\N	\N	f	AQAAAAIAAYagAAAAEMMQXKbgP74zSexLZkm7Jrj7mLOfJaWbgAdS4o5sr+eBzjMPXaf8DHK9AuXiyXuiug==	HS3SIRKPNDFJSHJSZVXA7V6BHJF23Y7Q	298c6350-351e-407a-b3a5-38c9f32bf403	\N	f	f	\N	t	0
 \.
 
 

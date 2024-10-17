@@ -6,16 +6,12 @@ namespace diary.ViewModels
 {
     public class ManageAttendanceViewModel
     {
-        public int ClassGroupId { get; set; }
+        public int ClassId { get; set; }
         public string SubjectName { get; set; }
         public string SubjectType { get; set; }
-        public string GroupNuber { get; set; }
-
-        public double StudyDuration { get; set; }
-
+        public string GroupNumber { get; set; }
+        public int TotalClasses { get; set; }
         public List<StudentData> Students { get; set; } = new List<StudentData>();
         public List<AttendanceData> AttendanceRecords { get; set; } = new List<AttendanceData>();
-
-        // We can add any helper methods or additional properties as needed
     }
 }

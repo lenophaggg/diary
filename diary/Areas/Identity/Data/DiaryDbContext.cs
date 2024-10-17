@@ -19,7 +19,6 @@ namespace diary.Data
         public DbSet<AttendanceData> Attendance { get; set; }
         public DbSet<StudentAbsencesData> StudentAbsences { get; set; }
 
-        public DbSet<ClassGroupAssignmentData> ClassGroupAssignments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

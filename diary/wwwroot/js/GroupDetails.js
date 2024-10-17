@@ -157,7 +157,7 @@ function removeGroupHead(studentId) {
 
 function removeStudent(studentId) {
     $.ajax({
-        url: '/Admin/RemoveStudent',
+        url: '/Shared/RemoveStudent',
         type: 'POST',
 
         data: {

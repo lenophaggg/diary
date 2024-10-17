@@ -1,14 +1,14 @@
 ﻿@model dynamic
+@using System.Linq
+
 @{
-    ViewData["Title"] = "Teacher Details";
+    ViewData["Title"] = $"Карточка преподавателя {@Model.NameContact}";
 }
 
 <div class="container mt-5">
     <div class="row mb-4">
-        <!-- Заголовок с увеличенным шрифтом -->
         <h1 class="text-primary text-center display-4 mb-4">Информация о преподавателе</h1>
 
-        <!-- Блок с изображением и информацией о преподавателе -->
         <div class="col-lg-4 col-md-6 col-sm-12 mb-4">
             <img src="@Model.ImgPath" alt="Teacher Image" class="img-fluid" style="height: 100%; max-height: 800px; object-fit: cover;">
         </div>
@@ -19,7 +19,17 @@
                     <p><strong class="text-secondary">ID:</strong> @Model.IdContact</p>
                     <p><strong class="text-secondary">ISU ID:</strong> @Model.UniversityIdContact</p>
                     <p><strong class="text-secondary">ФИО:</strong> @Model.NameContact</p>
-                    <p><strong class="text-secondary">Должность:</strong> @string.Join(", ", @Model.Position)</p>
+                    <p>
+                        <strong class="text-secondary">Должность:</strong>
+                        @if (Model.Position != null && ((IEnumerable<string>)Model.Position).Any())
+                        {
+                            @string.Join(", ", Model.Position)
+                        }
+                        else
+                        {
+                            @:N/A
+                        }
+                    </p>
                 </div>
                 <div class="col-md-6">
                     <p><strong class="text-secondary">Ученая степень:</strong> @Model.AcademicDegree</p>
@@ -30,6 +40,7 @@
             </div>
         </div>
     </div>
+
     @if (Model.UserId != null)
     {
         <div class="mt-4">
@@ -46,7 +57,7 @@
                     <tr>
                         <td>@Model.UserName</td>
                         <td>
-                            <span id="userRoles">@string.Join(", ", @Model.UserRoles)</span>
+                            <span id="userRoles">@(Model.UserRoles != null && Model.UserRoles.Count > 0 ? string.Join(", ", Model.UserRoles) : "N/A")</span>
                             <button class="btn btn-secondary ml-2" onclick="openRoleModal('@Model.UserId')">Изменить роли</button>
                         </td>
                         <td class="align-middle">
@@ -76,22 +87,20 @@
                         <th>Тип занятия</th>
                         <th>Группа</th>
                         <th></th>
-                        
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var classData in Model.Classes)
                     {
                         <tr>
-                            <td>@classData.Class.Subject</td>
-                            <td>@classData.Class.Semester</td>
-                            <td>@classData.Class.AcademicYear</td>
-                            <td class="lesson-type" data-lesson-type="@classData.Class.Type"></td>
+                            <td>@classData.Subject</td>
+                            <td>@classData.Semester</td>
+                            <td>@classData.AcademicYear</td>
+                            <td class="lesson-type" data-lesson-type="@classData.Type"></td>
                             <td>@classData.GroupNumber</td>
                             <td>
-                                <a asp-controller="Shared" asp-action="ManageAttendance" asp-route-classGroupId="@classData.ClassGroupId" class="btn btn-primary">Открыть</a>
+                                <a asp-controller="Shared" asp-action="ManageAttendance" asp-route-classId="@classData.ClassId" class="btn btn-primary">Открыть</a>
                             </td>
-                            
                         </tr>
                     }
                 </tbody>
@@ -104,19 +113,20 @@
     }
 </div>
 
-<!-- Модальное окно для присвоения пользователя -->
+<!-- Модальное окно для создания пользователя -->
 <div class="modal fade" id="assignUserModal" tabindex="-1" role="dialog" aria-labelledby="assignUserModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <form id="assignUserForm">
                 <div class="modal-header">
                     <h5 class="modal-title" id="assignUserModalLabel">Создание пользователя для преподавателя</h5>
-
+                    
                 </div>
                 <div class="modal-body">
+                    @Html.AntiForgeryToken()
                     <input type="hidden" id="personContactId" name="personContactId" />
+                    <input type="hidden" id="contactType" name="contactType" />
 
-                    <input type="hidden" id="contactType" name="contactType" /> 
                     <div class="form-group">
                         <label for="userName">Имя пользователя:</label>
                         <input type="text" id="userName" name="userName" class="form-control" required />
@@ -160,8 +170,10 @@
             <form id="roleForm">
                 <div class="modal-header">
                     <h5 class="modal-title" id="roleModalLabel">Изменить роли пользователя</h5>
+                    
                 </div>
                 <div class="modal-body">
+                    @Html.AntiForgeryToken()
                     <input type="hidden" id="editUserId" name="editUserId" />
 
                     <div class="form-group">
@@ -187,4 +199,5 @@
     </div>
 </div>
 
+<!-- Подключение вашего отдельного файла со скриптами -->
 <script src="~/js/TeacherDetails.js"></script>

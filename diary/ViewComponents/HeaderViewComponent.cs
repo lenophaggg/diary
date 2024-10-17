@@ -22,8 +22,8 @@ namespace diary.ViewComponents
             var typeWeek = _configuration["ScheduleOptions:TypeWeek"];
             string shortWeekType = typeWeek.ToLower() switch
             {
-                "верхняя неделя" => "верх. нед.",
-                "нижняя неделя" => "нижн. нед.",
+                "верхняя неделя" => "верхняя",
+                "нижняя неделя" => "нижняя",
                 _ => typeWeek
             };
 

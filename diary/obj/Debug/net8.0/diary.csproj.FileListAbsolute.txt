@@ -529,8 +529,8 @@ C:\Users\renzh\OneDrive\Desktop\diary\diary\obj\Debug\net8.0\diary.pdb
 C:\Users\renzh\OneDrive\Desktop\diary\diary\obj\Debug\net8.0\diary.genruntimeconfig.cache
 C:\Users\renzh\OneDrive\Desktop\diary\diary\obj\Debug\net8.0\ref\diary.dll
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\appsettings.Development.json
-C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\libman.json
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\appsettings.json
+C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\libman.json
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\diary.staticwebassets.runtime.json
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\diary.exe
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\diary.deps.json
@@ -539,6 +539,9 @@ C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\diary.dll
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\diary.pdb
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\Azure.Core.dll
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\Azure.Identity.dll
+C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\EPPlus.dll
+C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\EPPlus.Interfaces.dll
+C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\EPPlus.System.Drawing.dll
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\HtmlAgilityPack.dll
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\Humanizer.dll
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\Microsoft.AspNetCore.Cryptography.Internal.dll
@@ -580,6 +583,7 @@ C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\Microsoft.IdentityModel
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.dll
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\Microsoft.IdentityModel.Tokens.dll
+C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\Microsoft.IO.RecyclableMemoryStream.dll
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\Microsoft.NET.StringTools.dll
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\Microsoft.SqlServer.Server.dll
 C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\Microsoft.VisualStudio.Web.CodeGeneration.dll
@@ -777,6 +781,7 @@ C:\Users\user\Desktop\papka\diary\diary\obj\Debug\net8.0\diary.MvcApplicationPar
 C:\Users\user\Desktop\papka\diary\diary\obj\Debug\net8.0\diary.MvcApplicationPartsAssemblyInfo.cache
 C:\Users\user\Desktop\papka\diary\diary\obj\Debug\net8.0\diary.RazorAssemblyInfo.cache
 C:\Users\user\Desktop\papka\diary\diary\obj\Debug\net8.0\diary.RazorAssemblyInfo.cs
+C:\Users\user\Desktop\papka\diary\diary\obj\Debug\net8.0\diary.sourcelink.json
 C:\Users\user\Desktop\papka\diary\diary\obj\Debug\net8.0\staticwebassets.build.json
 C:\Users\user\Desktop\papka\diary\diary\obj\Debug\net8.0\staticwebassets.development.json
 C:\Users\user\Desktop\papka\diary\diary\obj\Debug\net8.0\staticwebassets\msbuild.diary.Microsoft.AspNetCore.StaticWebAssets.props
@@ -793,8 +798,3 @@ C:\Users\user\Desktop\papka\diary\diary\obj\Debug\net8.0\refint\diary.dll
 C:\Users\user\Desktop\papka\diary\diary\obj\Debug\net8.0\diary.pdb
 C:\Users\user\Desktop\papka\diary\diary\obj\Debug\net8.0\diary.genruntimeconfig.cache
 C:\Users\user\Desktop\papka\diary\diary\obj\Debug\net8.0\ref\diary.dll
-C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\EPPlus.dll
-C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\EPPlus.Interfaces.dll
-C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\EPPlus.System.Drawing.dll
-C:\Users\user\Desktop\papka\diary\diary\bin\Debug\net8.0\Microsoft.IO.RecyclableMemoryStream.dll
-C:\Users\user\Desktop\papka\diary\diary\obj\Debug\net8.0\diary.sourcelink.json

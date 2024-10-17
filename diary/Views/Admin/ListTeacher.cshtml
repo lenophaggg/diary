@@ -6,31 +6,73 @@
 
 <!-- Блок для отображения индикатора загрузки -->
 <div id="loader" style="display: block; text-align: center; margin-top: 20px;">
-    <div class="spinner"></div>
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Загрузка...</span>
+    </div>
 </div>
 
 <!-- Контейнер с содержимым, скрыт при начальной загрузке -->
 <div class="container-fluid mt-4" style="display: none;">
     <h1 class="text-center">Список преподавателей</h1>
 
-    <!-- Поле для поиска -->
-    <div class="d-flex justify-content-between align-items-center">
+    <!-- Поле для поиска и кнопка добавления преподавателя -->
+    <div class="d-flex justify-content-between align-items-center mt-3">
         <div class="input-group w-50">
             <input type="text" id="searchTeacherInput" class="form-control" placeholder="Введите ФИО преподавателя">
             <div class="input-group-append">
                 <button id="searchTeacherBtn" class="btn btn-primary">
-                    <i class="fa fa-search"></i>
+                    <i class="fa fa-search"></i> Поиск
                 </button>
             </div>
         </div>
+        <button class="btn btn-success" onclick="openAddTeacherModal()">
+            <i class="fas fa-plus"></i> Добавить преподавателя
+        </button>
     </div>
 
-    <!-- Контейнер для таблицы -->
+    <!-- Контейнер для таблицы преподавателей -->
     <div class="table-responsive mt-4" id="teachersTableContainer">
         @await Html.PartialAsync("_TeachersTable", Model)
     </div>
 </div>
 
+<!-- Модальное окно для добавления преподавателя -->
+<div class="modal fade" id="addTeacherModal" tabindex="-1" role="dialog" aria-labelledby="addTeacherModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form id="addTeacherForm">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addTeacherModalLabel">Добавить преподавателя</h5>
+                    
+                </div>
+                <div class="modal-body">
+                    @Html.AntiForgeryToken()
+                    <div class="form-group">
+                        <label for="teacherName">ФИО преподавателя:</label>
+                        <input type="text" id="teacherName" name="teacherName" class="form-control" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="teacherUniversityId">ISU ID:</label>
+                        <input type="text" id="teacherUniversityId" name="teacherUniversityId" class="form-control" required />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="addTeacher()">Добавить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section scripts {
+    <!-- Подключение jQuery и Bootstrap (убедитесь, что они подключены до вашего скрипта) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"
+            integrity="sha256-K+0CWkDh0UgtNxO3eQZo8hQ7UtrhAyrx8WYpr3z1kKg="
+            crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"
+            integrity="sha384-LtrjvnR4/J57fVAm6X5czX7T00vEV5a+LFvPDA6rXHqzA5S2jNzt7AAHN2hUeRZ/"
+            crossorigin="anonymous"></script>
+
+    <!-- Подключение вашего отдельного файла со скриптами -->
     <script src="~/js/ListTeacher.js"></script>
 }

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace diary.Controllers
@@ -52,6 +53,11 @@ namespace diary.Controllers
                 .FirstOrDefault(pc => pc.IdContact == personContactUser.PersonContactId);
 
             return View(personContact);
+        }
+
+        public async Task<IActionResult> Classes()
+        {
+            return RedirectToAction("Classes", "Shared");
         }
 
         public async Task<IActionResult> TeacherDetails(int id)
@@ -108,33 +114,122 @@ namespace diary.Controllers
                 UserName = user?.UserName,
                 UserRoles = userRoles,
                 Roles = await _roleManager.Roles.ToListAsync(),
-                Classes = await _diaryDbContext.ClassGroupAssignments.Include(cga => cga.Class)                
-                                  .Where(c => c.Class.InstructorId == teacher.IdContact)
+                Classes = await _diaryDbContext.Classes              
+                                  .Where(c => c.InstructorId == teacher.IdContact)
                                   .ToListAsync() 
             };
             return View(model);
         }
 
+        // Метод для отображения списка преподавателей
+        [HttpGet]
         public async Task<IActionResult> ListTeacher()
         {
-            var teachers = await _applicationDbContext.PersonContacts.ToListAsync();
-            return View(teachers);
+            try
+            {
+                var teachers = await _applicationDbContext.PersonContacts.ToListAsync();
+                return View(teachers);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при загрузке списка преподавателей.");
+                return StatusCode(500, "Внутренняя ошибка сервера.");
+            }
         }
 
         [HttpGet]
         public async Task<IActionResult> FilterTeachers(string searchTerm)
         {
-            var query = _applicationDbContext.PersonContacts.AsQueryable();
-
-            if (!string.IsNullOrEmpty(searchTerm))
+            try
             {
-                query = query.Where(t => t.NameContact.ToLower().Contains(searchTerm.ToLower()));
+                var query = _applicationDbContext.PersonContacts.AsQueryable();
+
+                if (!string.IsNullOrEmpty(searchTerm))
+                {
+                    string lowerSearchTerm = searchTerm.ToLower();
+                    query = query.Where(t => t.NameContact.ToLower().Contains(lowerSearchTerm));
+                }
+
+                var filteredTeachers = await query.ToListAsync();
+                return PartialView("_TeachersTable", filteredTeachers);
             }
-
-            var filteredTeachers = await query.ToListAsync();
-
-            return PartialView("_TeachersTable", filteredTeachers);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при фильтрации преподавателей.");
+                return StatusCode(500, "Внутренняя ошибка сервера.");
+            }
         }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddTeacher(string teacherName, string teacherUniversityId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(teacherName) || string.IsNullOrWhiteSpace(teacherUniversityId))
+                {
+                    return Json(new { success = false, message = "Заполните все поля." });
+                }
+
+                if (!teacherUniversityId.All(char.IsDigit))
+                {
+                    return Json(new { success = false, message = "ISU ID должен состоять только из цифр." });
+                }
+
+                var existingTeacher = await _applicationDbContext.PersonContacts
+                    .FirstOrDefaultAsync(t => t.UniversityIdContact == teacherUniversityId);
+                if (existingTeacher != null)
+                {
+                    return Json(new { success = false, message = "Преподаватель с таким ISU ID уже существует." });
+                }
+
+                string bigImageUrl = $"https://isu.smtu.ru/images/isu_person/big/p{teacherUniversityId}.jpg";
+                string smallImageUrl = $"https://isu.smtu.ru/images/isu_person/small/p{teacherUniversityId}.jpg";
+                string imgPath = smallImageUrl;
+
+                try
+                {
+                    using (HttpClient httpClient = new HttpClient())
+                    {
+                        HttpResponseMessage response = await httpClient.GetAsync(bigImageUrl);
+                        if (response.IsSuccessStatusCode)
+                        {
+                            imgPath = bigImageUrl;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Не удалось загрузить большое изображение, используется маленькое.");
+                    imgPath = smallImageUrl;
+                }
+
+                var newTeacher = new PersonContactData
+                {
+                    NameContact = teacherName.Trim(),
+                    UniversityIdContact = teacherUniversityId.Trim(),
+                    ImgPath = imgPath
+                };
+
+                await _applicationDbContext.PersonContacts.AddAsync(newTeacher);
+                int changes = await _applicationDbContext.SaveChangesAsync();
+
+                if (changes > 0)
+                {
+                    return Json(new { success = true });
+                }
+                else
+                {
+                    return Json(new { success = false, message = "Не удалось сохранить данные." });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при добавлении преподавателя.");
+                return StatusCode(500, "Внутренняя ошибка сервера.");
+            }
+        }
+
         #region ManageUsers
 
         [HttpPost]
@@ -376,12 +471,12 @@ namespace diary.Controllers
         {
             if (string.IsNullOrEmpty(id))
             {
-                return RedirectToAction("Index", "Admin"); // Перенаправление на главную страницу или другую страницу по вашему выбору
+                return RedirectToAction("Index", "Admin");
             }
 
             string group = id;
 
-            // Получаем студентов группы
+            // Получаем список студентов группы
             var students = await _diaryDbContext.Students
                 .Where(s => s.GroupNumber == group)
                 .ToListAsync();
@@ -393,11 +488,71 @@ namespace diary.Controllers
                 .Select(gh => gh.Student)
                 .FirstOrDefaultAsync();
 
+            // Шаг 1: Получаем общее количество занятий по каждому предмету для группы
+            var totalClassesPerSubject = await _diaryDbContext.Attendance
+                .Where(a => a.Student.GroupNumber == group)
+                .Select(a => new { a.Class.Subject, a.Date, a.SessionNumber })
+                .Distinct()
+                .ToListAsync();
+
+            // Группируем по предмету и считаем количество занятий
+            var totalClassesDict = totalClassesPerSubject
+                .GroupBy(tc => tc.Subject)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            // Шаг 2: Получаем данные посещаемости для всех студентов группы
+            var attendanceData = await _diaryDbContext.Attendance
+                .Where(a => a.Student.GroupNumber == group)
+                .Select(a => new
+                {
+                    a.Student.StudentId,
+                    a.Student.Name,
+                    a.Class.Subject,
+                    a.IsPresent,
+                    a.IsExcusedAbsence,
+                    a.Date,
+                    a.SessionNumber
+                })
+                .ToListAsync();
+
+            // Шаг 3: Группируем данные по студенту и предмету и рассчитываем посещаемость
+            var attendanceReports = attendanceData
+                .GroupBy(a => new { a.StudentId, a.Name, a.Subject })
+                .Select(g => new
+                {
+                    g.Key.StudentId,
+                    g.Key.Name,
+                    g.Key.Subject,
+                    Presents = g
+                        .Where(a => a.IsPresent)
+                        .Select(a => new { a.Date, a.SessionNumber })
+                        .Distinct()
+                        .Count(),
+                    ExcusedAbsences = g
+                        .Where(a => a.IsExcusedAbsence)
+                        .Select(a => new { a.Date, a.SessionNumber })
+                        .Distinct()
+                        .Count()
+                })
+                .ToList();
+
+            // Шаг 4: Рассчитываем процент посещаемости
+            var finalAttendanceReports = attendanceReports.Select(r => new AttendanceReport
+            {
+                StudentId = r.StudentId,
+                StudentName = r.Name,
+                SubjectName = r.Subject,
+                AttendancePercentage = totalClassesDict.ContainsKey(r.Subject) && (totalClassesDict[r.Subject] - r.ExcusedAbsences) > 0
+                    ? ((double)r.Presents / (totalClassesDict[r.Subject] - r.ExcusedAbsences)) * 100.0
+                    : 0.0
+            }).ToList();
+
             var groupDetailsViewModel = new GroupDetailsViewModel
             {
                 GroupNumber = group,
                 Students = students,
-                GroupHead = grouphead
+                GroupHead = grouphead,
+                AttendanceReports = finalAttendanceReports
             };
 
             return View(groupDetailsViewModel);
@@ -540,33 +695,7 @@ namespace diary.Controllers
         }
 
         // Метод для удаления студента из группы
-        [HttpPost]
-        public async Task<IActionResult> RemoveStudent(int studentId)
-        {
-            var curUser = await _userManager.GetUserAsync(User);
-            if (curUser == null)
-            {
-                return Unauthorized();
-            }
-
-            var student = await _diaryDbContext.Students.FindAsync(studentId);
-            if (student == null)
-            {
-                return NotFound("Student not found");
-            }
-
-            var groupHead = await _diaryDbContext.GroupHeads
-                .FirstOrDefaultAsync(gh => gh.StudentId == studentId);
-            if (groupHead != null)
-            {
-                return BadRequest("Cannot remove student who is a group head");
-            }
-
-            _diaryDbContext.Students.Remove(student);
-            await _diaryDbContext.SaveChangesAsync();
-
-            return Json(new { success = true });
-        }
+        
         #endregion
 
         #region StudentAbsence

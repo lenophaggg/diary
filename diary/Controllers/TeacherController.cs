@@ -162,15 +162,15 @@ namespace diary.Controllers
                 return Json(new { success = false, message = "Занятие не найдено." });
             }
             
-            var classGroupAssignments = await _diaryDbContext.ClassGroupAssignments
+            var classGroupAssignments = await _diaryDbContext.Classes
                 .Where(cg => cg.ClassId == classEntity.ClassId)
                 .ToListAsync(); 
             
-            var classGroupAssignmentsClassGroupId = classGroupAssignments.Select(cg => cg.ClassGroupId)
+            var classGroupAssignmentsClassGroupId = classGroupAssignments.Select(cg => cg.ClassId)
                 .ToList(); 
 
             var attendanceRecords = await _diaryDbContext.Attendance
-                .Where(a => classGroupAssignmentsClassGroupId.Contains(a.ClassGroupId)) 
+                .Where(a => classGroupAssignmentsClassGroupId.Contains(a.ClassId)) 
                 .ToListAsync();
 
             // Удаляем все связанные данные о посещаемости
@@ -182,7 +182,7 @@ namespace diary.Controllers
             // Удаляем все связанные данные о занятиях
             if (classGroupAssignments.Any())
             {
-                _diaryDbContext.ClassGroupAssignments.RemoveRange(classGroupAssignments);
+                _diaryDbContext.Classes.RemoveRange(classGroupAssignments);
             }
 
             // Удаляем предмет
@@ -200,63 +200,63 @@ namespace diary.Controllers
         }
 
         // Сохранение столбика посещаемости старосте
-        [HttpPost]
-        public async Task<IActionResult> SaveAttendance([FromBody] List<AttendanceData> attendanceData)
-        {
-            if (attendanceData == null || !attendanceData.Any())
-            {
-                return BadRequest("No attendance data submitted.");
-            }
+        //[HttpPost]
+        //public async Task<IActionResult> SaveAttendance([FromBody] List<AttendanceData> attendanceData)
+        //{
+        //    if (attendanceData == null || !attendanceData.Any())
+        //    {
+        //        return BadRequest("No attendance data submitted.");
+        //    }
 
-            foreach (var record in attendanceData)
-            {
-                var classGroupNumber = (await _diaryDbContext.ClassGroupAssignments.FindAsync(record.ClassGroupId)).GroupNumber;
+        //    foreach (var record in attendanceData)
+        //    {
+        //        var classGroupNumber = (await _diaryDbContext.ClassGroupAssignments.FindAsync(record.ClassGroupId)).GroupNumber;
                
-                bool isAbsent = await _diaryDbContext.StudentAbsences
-                .AnyAsync(sa => sa.StudentId == record.StudentId
-                                && sa.GroupNumber == classGroupNumber
-                                && sa.StartDate <= record.Date.ToDateTime(new TimeOnly())
-                                && sa.EndDate >= record.Date.ToDateTime(new TimeOnly())
-                                && sa.Status == AbsencesStatus.Approved);
+        //        bool isAbsent = await _diaryDbContext.StudentAbsences
+        //        .AnyAsync(sa => sa.StudentId == record.StudentId
+        //                        && sa.GroupNumber == classGroupNumber
+        //                        && sa.StartDate <= record.Date.ToDateTime(new TimeOnly())
+        //                        && sa.EndDate >= record.Date.ToDateTime(new TimeOnly())
+        //                        && sa.Status == AbsencesStatus.Approved);
 
-                bool isPresent = record.IsPresent;
+        //        bool isPresent = record.IsPresent;
 
-                if (isAbsent == isPresent)
-                {
-                    isPresent = false;
-                }
+        //        if (isAbsent == isPresent)
+        //        {
+        //            isPresent = false;
+        //        }
 
-                // Ищем существующую запись посещаемости
-                var existingRecord = await _diaryDbContext.Attendance
-                    .FirstOrDefaultAsync(a => a.ClassGroupId == record.ClassGroupId
-                                           && a.StudentId == record.StudentId
-                                           && a.Date == record.Date
-                                           && a.SessionNumber == record.SessionNumber);
+        //        // Ищем существующую запись посещаемости
+        //        var existingRecord = await _diaryDbContext.Attendance
+        //            .FirstOrDefaultAsync(a => a.ClassGroupId == record.ClassGroupId
+        //                                   && a.StudentId == record.StudentId
+        //                                   && a.Date == record.Date
+        //                                   && a.SessionNumber == record.SessionNumber);
 
-                if (existingRecord != null)
-                {
-                    existingRecord.IsPresent = isPresent;
-                    existingRecord.IsAbsence = isAbsent;
-                    existingRecord.Status = AttendanceStatus.ConfirmedByTeacher;
-                }
-                else
-                {
-                    _diaryDbContext.Attendance.Add(new AttendanceData
-                    {
-                        ClassGroupId = record.ClassGroupId,
-                        StudentId = record.StudentId,
-                        Date = record.Date,
-                        SessionNumber = record.SessionNumber,
-                        IsPresent = !isAbsent && isPresent,
-                        // Уважительная причина
-                        IsAbsence = isAbsent,
-                        Status = AttendanceStatus.ConfirmedByTeacher
-                    });
-                }
-            }
-            await _diaryDbContext.SaveChangesAsync();
-            return Ok();
-        }
+        //        if (existingRecord != null)
+        //        {
+        //            existingRecord.IsPresent = isPresent;
+        //            existingRecord.IsAbsence = isAbsent;
+        //            existingRecord.Status = AttendanceStatus.ConfirmedByTeacher;
+        //        }
+        //        else
+        //        {
+        //            _diaryDbContext.Attendance.Add(new AttendanceData
+        //            {
+        //                ClassGroupId = record.ClassGroupId,
+        //                StudentId = record.StudentId,
+        //                Date = record.Date,
+        //                SessionNumber = record.SessionNumber,
+        //                IsPresent = !isAbsent && isPresent,
+        //                // Уважительная причина
+        //                IsAbsence = isAbsent,
+        //                Status = AttendanceStatus.ConfirmedByTeacher
+        //            });
+        //        }
+        //    }
+        //    await _diaryDbContext.SaveChangesAsync();
+        //    return Ok();
+        //}
 
         // Удаление столбика посещаемости
         [HttpPost]
@@ -279,75 +279,75 @@ namespace diary.Controllers
         }
 
         // Метод отправки столбика посещаемости старосте
-        [HttpPost]
-        public async Task<IActionResult> SubmitAttendanceToGroupHead([FromBody] List<AttendanceData> attendanceData)
-        {
-            if (attendanceData == null || !attendanceData.Any())
-            {
-                return BadRequest("No attendance data submitted.");
-            }
+        //[HttpPost]
+        //public async Task<IActionResult> SubmitAttendanceToGroupHead([FromBody] List<AttendanceData> attendanceData)
+        //{
+        //    if (attendanceData == null || !attendanceData.Any())
+        //    {
+        //        return BadRequest("No attendance data submitted.");
+        //    }
 
-            using (var transaction = await _diaryDbContext.Database.BeginTransactionAsync())
-            {
-                try
-                {
-                    var classGroupNumber = (await _diaryDbContext.ClassGroupAssignments.FindAsync(attendanceData[0].ClassGroupId)).GroupNumber;
+        //    using (var transaction = await _diaryDbContext.Database.BeginTransactionAsync())
+        //    {
+        //        try
+        //        {
+        //            var classGroupNumber = (await _diaryDbContext.ClassGroupAssignments.FindAsync(attendanceData[0].ClassGroupId)).GroupNumber;
 
-                    foreach (var record in attendanceData)
-                    {
-                        var existingRecord = await _diaryDbContext.Attendance
-                            .FirstOrDefaultAsync(a => a.ClassGroupId == record.ClassGroupId
-                                && a.StudentId == record.StudentId
-                                && a.Date == record.Date
-                                && a.SessionNumber == record.SessionNumber);
+        //            foreach (var record in attendanceData)
+        //            {
+        //                var existingRecord = await _diaryDbContext.Attendance
+        //                    .FirstOrDefaultAsync(a => a.ClassGroupId == record.ClassGroupId
+        //                        && a.StudentId == record.StudentId
+        //                        && a.Date == record.Date
+        //                        && a.SessionNumber == record.SessionNumber);
 
-                        // пропуск если запись уже существует
-                        if (existingRecord != null)
-                        {
-                            continue; 
-                        }
-                        // создание новой записи
+        //                // пропуск если запись уже существует
+        //                if (existingRecord != null)
+        //                {
+        //                    continue; 
+        //                }
+        //                // создание новой записи
                        
                                                 
-                        bool isAbsent = await _diaryDbContext.StudentAbsences
-                            .AnyAsync(sa => sa.StudentId == record.StudentId
-                                            && sa.GroupNumber == classGroupNumber
-                                            && sa.StartDate <= record.Date.ToDateTime(new TimeOnly())
-                                            && sa.EndDate >= record.Date.ToDateTime(new TimeOnly())
-                                            && sa.Status == AbsencesStatus.Approved);
+        //                bool isAbsent = await _diaryDbContext.StudentAbsences
+        //                    .AnyAsync(sa => sa.StudentId == record.StudentId
+        //                                    && sa.GroupNumber == classGroupNumber
+        //                                    && sa.StartDate <= record.Date.ToDateTime(new TimeOnly())
+        //                                    && sa.EndDate >= record.Date.ToDateTime(new TimeOnly())
+        //                                    && sa.Status == AbsencesStatus.Approved);
 
-                        bool isPresent = record.IsPresent;
+        //                bool isPresent = record.IsPresent;
 
-                        if (isAbsent == isPresent)
-                        {
-                            isPresent = false;
-                        }
+        //                if (isAbsent == isPresent)
+        //                {
+        //                    isPresent = false;
+        //                }
 
-                        _diaryDbContext.Attendance.Add(new AttendanceData
-                        {
-                            ClassGroupId = record.ClassGroupId,
-                            StudentId = record.StudentId,
-                            Date = record.Date,
-                            IsPresent = isPresent,
-                            IsAbsence = isAbsent,
-                            Status = AttendanceStatus.Draft,
-                            SessionNumber = record.SessionNumber
-                        });
-                    }
+        //                _diaryDbContext.Attendance.Add(new AttendanceData
+        //                {
+        //                    ClassGroupId = record.ClassGroupId,
+        //                    StudentId = record.StudentId,
+        //                    Date = record.Date,
+        //                    IsPresent = isPresent,
+        //                    IsAbsence = isAbsent,
+        //                    Status = AttendanceStatus.Draft,
+        //                    SessionNumber = record.SessionNumber
+        //                });
+        //            }
 
-                    await _diaryDbContext.SaveChangesAsync();
-                    await transaction.CommitAsync();
-                }
-                catch (Exception ex)
-                {
-                    await transaction.RollbackAsync();
-                    Console.WriteLine(ex);
-                    return StatusCode(500, "Internal server error");
-                }
-            }
+        //            await _diaryDbContext.SaveChangesAsync();
+        //            await transaction.CommitAsync();
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            await transaction.RollbackAsync();
+        //            Console.WriteLine(ex);
+        //            return StatusCode(500, "Internal server error");
+        //        }
+        //    }
 
-            return Ok();
-        }
+        //    return Ok();
+        //}
 
         // Добавление занятия - привязка предмета к группе
         [HttpPost]
@@ -359,13 +359,13 @@ namespace diary.Controllers
                 return BadRequest(new { success = false, message = "Class not found" });
             }
 
-           var newClassGroupAssignment = new ClassGroupAssignmentData()
+           var newClassGroupAssignment = new ClassData()
            {
                ClassId = existingClass.ClassId,
                GroupNumber = groupNumber
            };
 
-            _diaryDbContext.ClassGroupAssignments.Add(newClassGroupAssignment);
+            _diaryDbContext.Classes.Add(newClassGroupAssignment);
             await _diaryDbContext.SaveChangesAsync();
 
             return Json(new { success = true });
@@ -414,8 +414,7 @@ namespace diary.Controllers
             var newClass = new ClassData
             {
                 Subject = subjectName,
-                InstructorId = dbInstructorId,
-                StudyDuration = studyDuration,
+                InstructorId = dbInstructorId,               
                 Semester = semester,
                 AcademicYear = academicYear,
                 Type = parsedLessonType
@@ -474,7 +473,6 @@ namespace diary.Controllers
                 {
                     classId = c.ClassId,
                     subject = c.Subject,
-                    studyDuration = c.StudyDuration,
                     semester = c.Semester,
                     academicYear = c.AcademicYear,
                     lessonType = c.Type.ToString()
@@ -499,7 +497,6 @@ namespace diary.Controllers
             }
 
             existingClass.Subject = subjectName;
-            existingClass.StudyDuration = studyDuration;
             existingClass.Semester = semester;
             existingClass.AcademicYear = academicYear;
 

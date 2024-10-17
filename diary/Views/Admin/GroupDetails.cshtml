@@ -23,8 +23,7 @@
                     </div>
                     <div class="card-body">
                         <p class="card-text fs-4">@Model.GroupHead.Name</p>
-                        <a asp-action="GroupHeadDetails" asp-route-id="@Model.GroupHead.StudentId"
-                            class="btn btn-primary">Открыть профиль</a>
+                        <a asp-action="GroupHeadDetails" asp-route-id="@Model.GroupHead.StudentId" class="btn btn-primary">Открыть профиль</a>
                         <button class="btn btn-secondary" onclick="openAssignGroupHeadModal()">Изменить старосту</button>
                         <button class="btn btn-danger" onclick="removeGroupHead('@Model.GroupHead.StudentId')">
                             <i class="fas fa-times"></i> Удалить старосту
@@ -74,8 +73,7 @@
                                         <td>@student.Name</td>
                                         <td>@student.UniversityStudentId</td>
                                         <td>
-                                            <img src="https://isu.smtu.ru/images/isu_person/small/p@(student.UniversityStudentId).jpg"
-                                                alt="Student Photo" style="max-width: 100px; height: auto;">
+                                            <img src="https://isu.smtu.ru/images/isu_person/small/p@(student.UniversityStudentId).jpg" alt="Student Photo" style="max-width: 100px; height: auto;">
                                         </td>
                                         <td style="width: 1%; white-space: nowrap;">
                                             <button class="btn btn-danger" onclick="removeStudent('@student.StudentId')">
@@ -97,11 +95,51 @@
             </div>
         </div>
     </div>
+
+    <!-- Отчет по посещаемости -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h2 class="card-title mb-0">Отчет по посещаемости</h2>
+                </div>
+                <div class="card-body">
+                    @if (Model.AttendanceReports.Any())
+                    {
+                        <table class="table table-bordered">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th scope="col">ФИО студента</th>
+                                    <th scope="col">Название предмета</th>
+                                    <th scope="col">Процент посещаемости</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var report in Model.AttendanceReports)
+                                {
+                                    <tr>
+                                        <td>@report.StudentName</td>
+                                        <td>@report.SubjectName</td>
+                                        <td>@report.AttendancePercentage.ToString("F2")%</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning" role="alert">
+                            Отчет по посещаемости не доступен
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Модальное окно для назначения старосты -->
-<div class="modal fade" id="assignGroupHeadModal" tabindex="-1" role="dialog"
-    aria-labelledby="assignGroupHeadModalLabel" aria-hidden="true">
+<div class="modal fade" id="assignGroupHeadModal" tabindex="-1" role="dialog" aria-labelledby="assignGroupHeadModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <form id="assignGroupHeadForm">
@@ -128,8 +166,7 @@
 </div>
 
 <!-- Модальное окно для добавления студента -->
-<div class="modal fade" id="addStudentModal" data-group-number="@Model.GroupNumber" tabindex="-1" role="dialog"
-    aria-labelledby="addStudentModalLabel" aria-hidden="true">
+<div class="modal fade" id="addStudentModal" data-group-number="@Model.GroupNumber" tabindex="-1" role="dialog" aria-labelledby="addStudentModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <form id="addStudentForm">
@@ -143,8 +180,7 @@
                     </div>
                     <div class="form-group">
                         <label for="universityStudentId">ISU ID студента:</label>
-                        <input type="text" id="universityStudentId" name="universityStudentId" class="form-control"
-                            required />
+                        <input type="text" id="universityStudentId" name="universityStudentId" class="form-control" required />
                     </div>
                 </div>
                 <div class="modal-footer">

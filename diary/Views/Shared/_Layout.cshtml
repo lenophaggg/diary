@@ -51,14 +51,7 @@
                             страница</a>
                     </li>
                 }
-                @if (User.IsInRole("Teacher"))
-                {
-                    @await Component.InvokeAsync("TeacherNavigation")
-                    <li class="nav-item nav-item-padded">
-                        <a class="nav-link text-light" asp-area="" asp-controller="Teacher" asp-action="Index">Домашняя
-                            страница</a>
-                    </li>
-                }
+                
 
                 <li class="nav-item nav-item-padded">
                     <form method="post" asp-controller="Home" asp-action="Logout" class="d-inline">
