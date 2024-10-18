@@ -40,6 +40,7 @@ namespace diary.Controllers
 
         // Метод для отображения списка заявок
         [Authorize(Roles = "Admin, GroupHead")]
+        [Route("{role}/{action}")]
         public async Task<IActionResult> StudentAbsences()
         {
             var requests = await GetAbsenceRequestsAsync();
@@ -90,6 +91,7 @@ namespace diary.Controllers
         }
 
         [Authorize(Roles = "Admin, GroupHead")]
+        [Route("{role}/{action}")]
         [HttpPost]
         public async Task<IActionResult> RemoveStudent(int studentId)
         {
@@ -172,6 +174,7 @@ namespace diary.Controllers
 
         // Метод создания заявки на отсутсвие по уважительной причине
         [Authorize(Roles = "Admin, GroupHead")]
+        [Route("{role}/{action}")]
         public async Task<IActionResult> CreateStudentAbsenceRequest()
         {
             var user = await _userManager.GetUserAsync(User);
@@ -215,6 +218,7 @@ namespace diary.Controllers
 
         // Метод для просмотра существующей заявки со статусом минимум "отправлено"
         [Authorize(Roles = "Admin, GroupHead")]
+        [Route("{role}/{action}")]
         public async Task<IActionResult> StudentAbsencesDetails(int requestId)
         {
             var user = await _userManager.GetUserAsync(User);
@@ -252,6 +256,7 @@ namespace diary.Controllers
         // Метод для редактирования, обновления и первого создания существующей заявки
         [HttpPost]
         [Authorize(Roles = "Admin, GroupHead")]
+        [Route("{role}/{action}")]
         public async Task<IActionResult> UpdateStudentAbsenceStatus(StudentAbsenceViewModel model)
         {
             if (!ModelState.IsValid)
@@ -348,6 +353,7 @@ namespace diary.Controllers
         }
 
         [Authorize(Roles = "Admin, GroupHead")]
+        [Route("{role}/{action}")]
         public async Task<IActionResult> Classes()
         {
             var user = await _userManager.GetUserAsync(User);
@@ -710,6 +716,7 @@ namespace diary.Controllers
             }
         }
 
+        [Route("{role}/{action}")]
         public async Task<IActionResult> ManageAttendance(int classId)
         {
             var user = await _userManager.GetUserAsync(User);
