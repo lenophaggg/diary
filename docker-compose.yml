@@ -3,14 +3,11 @@ services:
     image: nginx:latest
     container_name: nginx_proxy
     ports:
-      - "80:80" # Открываем порт 80 для HTTP
-      - "443:443"  # Открываем порт 443 для HTTPS
+      - "80:80" # Открываем порт 80 для Nginx
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf # Подключаем конфигурацию Nginx
-      - ./letsencrypt:/etc/letsencrypt  # Сертификаты Let's Encrypt
-      - ./html:/usr/share/nginx/html  # Временные файлы для Certbot
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf 
     depends_on:
-      - diary # Указываем, что Nginx должен дождаться запуска вашего приложения
+      - diary 
     networks:
       - my_network
   diary:
@@ -20,6 +17,7 @@ services:
     container_name: dotnet_app
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTPS_PORTS=8081
       - ConnectionStrings__applicationDbContextConnection=Host=db;Database=interactiveboardentities;Username=postgres;Password=228228228
       - ConnectionStrings__diaryDbContextConnection=Host=db;Database=diaryentities;Username=postgres;Password=228228228
       - ConnectionStrings__DiaryIdentityDbContextConnection=Host=db;Database=diaryidentity;Username=postgres;Password=228228228
