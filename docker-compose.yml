@@ -1,4 +1,15 @@
 services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx_proxy
+    ports:
+      - "80:80" # Открываем порт 80 для Nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf 
+    depends_on:
+      - diary 
+    networks:
+      - my_network
   diary:
     build:
       context: .
