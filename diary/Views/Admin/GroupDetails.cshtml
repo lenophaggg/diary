@@ -96,6 +96,25 @@
         </div>
     </div>
 
+    <!-- Форма для фильтрации -->
+    <form method="get" asp-action="GroupDetails" asp-route-id="@Model.GroupNumber" class="mb-4 needs-validation" novalidate>
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label for="academicYear" class="form-label">Учебный год</label>
+                <input type="text" class="form-control" id="academicYear" name="academicYear" pattern="^\d{4}/\d{4}$" maxlength="9" placeholder="2024/2025" value="@ViewBag.AcademicYear" />
+                <div class="invalid-feedback">Введите учебный год в формате гггг/гггг</div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="semester" class="form-label">Семестр</label>
+                <input type="number" class="form-control" id="semester" name="semester" min="1" max="2" placeholder="1" value="@ViewBag.Semester" />
+                <div class="invalid-feedback">Введите семестр (1 или 2)</div>
+            </div>
+            <div class="col-md-4 align-self-end mb-3">
+                <button type="submit" class="btn btn-primary">Фильтровать</button>
+            </div>
+        </div>
+    </form>
+
     <!-- Отчет по посещаемости -->
     <div class="row mt-4">
         <div class="col-12">
@@ -111,6 +130,8 @@
                                 <tr>
                                     <th scope="col">ФИО студента</th>
                                     <th scope="col">Название предмета</th>
+                                    <th scope="col">Учебный год</th>
+                                    <th scope="col">Семестр</th>
                                     <th scope="col">Процент посещаемости</th>
                                 </tr>
                             </thead>
@@ -120,6 +141,8 @@
                                     <tr>
                                         <td>@report.StudentName</td>
                                         <td>@report.SubjectName</td>
+                                        <td>@report.AcademicYear</td>
+                                        <td>@report.Semester</td>
                                         <td>@report.AttendancePercentage.ToString("F2")%</td>
                                     </tr>
                                 }
@@ -129,13 +152,14 @@
                     else
                     {
                         <div class="alert alert-warning" role="alert">
-                            Отчет по посещаемости не доступен
+                            Недостаточно данных для отчета по посещаемости
                         </div>
                     }
                 </div>
             </div>
         </div>
     </div>
+
 </div>
 
 <!-- Модальное окно для назначения старосты -->
@@ -193,4 +217,23 @@
 
 @section scripts {
     <script src="~/js/GroupDetails.js"></script>
+
+    <script>
+        // Валидация формы
+        (function () {
+            'use strict';
+            window.addEventListener('load', function () {
+                var forms = document.getElementsByClassName('needs-validation');
+                Array.prototype.filter.call(forms, function (form) {
+                    form.addEventListener('submit', function (event) {
+                        if (form.checkValidity() === false) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        }
+                        form.classList.add('was-validated');
+                    }, false);
+                });
+            }, false);
+        })();
+    </script>
 }

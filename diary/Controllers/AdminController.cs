@@ -467,7 +467,8 @@ namespace diary.Controllers
             return View(facultyGroups);
         }
 
-        public async Task<IActionResult> GroupDetails(string id)
+        [HttpGet]
+        public async Task<IActionResult> GroupDetails(string id, string academicYear = null, int? semester = null)
         {
             if (string.IsNullOrEmpty(id))
             {
@@ -488,26 +489,30 @@ namespace diary.Controllers
                 .Select(gh => gh.Student)
                 .FirstOrDefaultAsync();
 
-            // Шаг 1: Получаем общее количество занятий по каждому предмету для группы
-            var totalClassesPerSubject = await _diaryDbContext.Attendance
-                .Where(a => a.Student.GroupNumber == group)
-                .Select(a => new { a.Class.Subject, a.Date, a.SessionNumber })
-                .Distinct()
-                .ToListAsync();
+            // Фильтруем данные посещаемости по учебному году и семестру
+            var attendanceQuery = _diaryDbContext.Attendance
+                .Include(a => a.Class)
+                .Include(a => a.Student)
+                .Where(a => a.Student.GroupNumber == group);
 
-            // Группируем по предмету и считаем количество занятий
-            var totalClassesDict = totalClassesPerSubject
-                .GroupBy(tc => tc.Subject)
-                .ToDictionary(g => g.Key, g => g.Count());
+            if (!string.IsNullOrEmpty(academicYear))
+            {
+                attendanceQuery = attendanceQuery.Where(a => a.Class.AcademicYear == academicYear);
+            }
 
-            // Шаг 2: Получаем данные посещаемости для всех студентов группы
-            var attendanceData = await _diaryDbContext.Attendance
-                .Where(a => a.Student.GroupNumber == group)
+            if (semester.HasValue)
+            {
+                attendanceQuery = attendanceQuery.Where(a => a.Class.Semester == semester.Value);
+            }
+
+            var attendanceData = await attendanceQuery
                 .Select(a => new
                 {
                     a.Student.StudentId,
                     a.Student.Name,
                     a.Class.Subject,
+                    a.Class.AcademicYear,
+                    a.Class.Semester,
                     a.IsPresent,
                     a.IsExcusedAbsence,
                     a.Date,
@@ -515,44 +520,53 @@ namespace diary.Controllers
                 })
                 .ToListAsync();
 
-            // Шаг 3: Группируем данные по студенту и предмету и рассчитываем посещаемость
-            var attendanceReports = attendanceData
-                .GroupBy(a => new { a.StudentId, a.Name, a.Subject })
+            // Получаем общее количество занятий по каждому предмету, году и семестру
+            var totalClassesPerSubject = attendanceData
+                .GroupBy(a => new { a.Subject, a.AcademicYear, a.Semester })
                 .Select(g => new
                 {
-                    g.Key.StudentId,
-                    g.Key.Name,
                     g.Key.Subject,
-                    Presents = g
-                        .Where(a => a.IsPresent)
-                        .Select(a => new { a.Date, a.SessionNumber })
-                        .Distinct()
-                        .Count(),
-                    ExcusedAbsences = g
-                        .Where(a => a.IsExcusedAbsence)
+                    g.Key.AcademicYear,
+                    g.Key.Semester,
+                    TotalClasses = g
                         .Select(a => new { a.Date, a.SessionNumber })
                         .Distinct()
                         .Count()
                 })
                 .ToList();
 
-            // Шаг 4: Рассчитываем процент посещаемости
-            var finalAttendanceReports = attendanceReports.Select(r => new AttendanceReport
-            {
-                StudentId = r.StudentId,
-                StudentName = r.Name,
-                SubjectName = r.Subject,
-                AttendancePercentage = totalClassesDict.ContainsKey(r.Subject) && (totalClassesDict[r.Subject] - r.ExcusedAbsences) > 0
-                    ? ((double)r.Presents / (totalClassesDict[r.Subject] - r.ExcusedAbsences)) * 100.0
-                    : 0.0
-            }).ToList();
+            // Группируем данные по студенту, предмету, году и семестру и рассчитываем посещаемость
+            var attendanceReports = attendanceData
+                .GroupBy(a => new { a.StudentId, a.Name, a.Subject, a.AcademicYear, a.Semester })
+                .Select(g => new AttendanceReport
+                {
+                    StudentId = g.Key.StudentId.ToString(),
+                    StudentName = g.Key.Name,
+                    SubjectName = g.Key.Subject,
+                    AcademicYear = g.Key.AcademicYear,
+                    Semester = g.Key.Semester,
+                    AttendancePercentage = totalClassesPerSubject.FirstOrDefault(t =>
+                        t.Subject == g.Key.Subject &&
+                        t.AcademicYear == g.Key.AcademicYear &&
+                        t.Semester == g.Key.Semester)?.TotalClasses > 0
+                        ? ((double)g.Count(a => a.IsPresent) / totalClassesPerSubject.First(t =>
+                            t.Subject == g.Key.Subject &&
+                            t.AcademicYear == g.Key.AcademicYear &&
+                            t.Semester == g.Key.Semester).TotalClasses) * 100
+                        : 0.0
+                })
+                .ToList();
+
+            // Передаем значения фильтров во ViewBag
+            ViewBag.AcademicYear = academicYear;
+            ViewBag.Semester = semester;
 
             var groupDetailsViewModel = new GroupDetailsViewModel
             {
                 GroupNumber = group,
                 Students = students,
                 GroupHead = grouphead,
-                AttendanceReports = finalAttendanceReports
+                AttendanceReports = attendanceReports
             };
 
             return View(groupDetailsViewModel);

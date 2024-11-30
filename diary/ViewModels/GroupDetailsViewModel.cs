@@ -6,9 +6,11 @@ namespace diary.ViewModels
 {
     public class AttendanceReport
     {
-        public int StudentId { get; set; }
+        public string StudentId { get; set; }
         public string StudentName { get; set; }
         public string SubjectName { get; set; }
+        public string AcademicYear { get; set; }
+        public int Semester { get; set; }
         public double AttendancePercentage { get; set; }
     }
 
