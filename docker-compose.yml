@@ -2,7 +2,7 @@ services:
   diary:
     build:
       context: .
-      dockerfile: diary/Dockerfile 
+      dockerfile: diary/Dockerfile
     container_name: dotnet_app
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
@@ -15,6 +15,24 @@ services:
     networks:
       - my_network
 
+  db:
+    image: postgres:latest
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 228228228
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - my_network
+    restart: always  
+
 networks:
   my_network:
-    external: true
+    external: true  
+
+volumes:
+  postgres_data:
