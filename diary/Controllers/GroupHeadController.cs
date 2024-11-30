@@ -110,7 +110,9 @@ namespace diary.Controllers
             var existingClass = await _diaryDbContext.Classes
                 .FirstOrDefaultAsync(c => c.Subject == subjectName
                     && c.InstructorId == dbInstructorId
-                    && c.Type == parsedLessonType);
+                    && c.Type == parsedLessonType
+                    && c.AcademicYear == academicYear
+                    && c.Semester == semester);
 
             if (existingClass != null)
             {

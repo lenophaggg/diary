@@ -582,13 +582,15 @@ namespace diary.Controllers
                 groupNumber = groupHead.Student.GroupNumber;
             }
 
-            var existingClass = await _diaryDbContext.Classes
-                .FirstOrDefaultAsync(c => c.Subject == subjectName
-                    && c.InstructorId == instructor.IdContact
-                    && c.Type == parsedLessonType
-                    && c.GroupNumber == groupNumber);
+            var exists = await _diaryDbContext.Classes
+    .AnyAsync(c => c.Subject == subjectName
+        && c.InstructorId == instructor.IdContact
+        && c.Type == parsedLessonType
+        && c.GroupNumber == groupNumber
+        && c.AcademicYear == academicYear
+        && c.Semester == semester);
 
-            if (existingClass != null)
+            if (exists)
             {
                 return BadRequest(new { success = false, message = "Такое занятие уже существует!" });
             }
