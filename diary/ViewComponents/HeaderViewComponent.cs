@@ -1,4 +1,4 @@
-﻿using diary.Models;
+using diary.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -27,10 +27,22 @@ namespace diary.ViewComponents
                 _ => typeWeek
             };
 
-            var currentDate = DateTime.Now.ToString("dd.MM");
+            // Получаем московский часовой пояс (UTC+3)
+            var russianTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+
+            // Получаем текущее UTC время
+            var utcNow = DateTime.UtcNow;
+
+            // Преобразуем в московское время (UTC+3)
+            var russianTime = TimeZoneInfo.ConvertTimeFromUtc(utcNow, russianTimeZone);
+
+            // Форматируем дату в нужный формат
+            var currentDate = russianTime.ToString("dd.MM");
+
             var headerContent = $"{shortWeekType} | {currentDate}";
 
             return View("Default", headerContent);
         }
+
     }
 }
