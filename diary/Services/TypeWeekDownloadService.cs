@@ -36,31 +36,74 @@ namespace diary.Services
         {
             while (!cancellationToken.IsCancellationRequested)
             {
+                try
+                {
+                    
 
-                var web = new HtmlWeb();
-                var doc = web.Load("https://www.smtu.ru/ru/listschedule/");
+                    using var httpClient = new HttpClient();
 
-                string xpath = "//h4[contains(.,'Сегодня')]";
+                    var response = await httpClient.GetAsync("https://www.smtu.ru/ru/listschedule/", cancellationToken);
 
-                HtmlNode node = doc.DocumentNode.SelectSingleNode(xpath);
-                string text = node.InnerText;
-                string[] parts = text.Split(',');
-                string value = parts[2].Trim();// Преобразование первого символа в верхний регистр
-                value = char.ToUpper(value[0]) + value.Substring(1); // "нижняя неделя"
+                    var html = await response.Content.ReadAsStringAsync(cancellationToken);
+                    var doc = new HtmlDocument();
+                    doc.LoadHtml(html);
 
-                // Обновляем значение в ScheduleOptions
-                _scheduleOptions.CurrentValue.TypeWeek = value;
+                    string xpath = "//h4[contains(.,'Сегодня')]";
+                    HtmlNode node = doc.DocumentNode.SelectSingleNode(xpath);
 
-                // Сохраняем изменения в appsettings.json
-                _configuration["ScheduleOptions:TypeWeek"] = value;
-                var configPath = Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json");
-                var configJson = File.ReadAllText(configPath);
-                var configDoc = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(configJson);
-                configDoc["ScheduleOptions"]["TypeWeek"] = value;
-                var updatedConfigJson = Newtonsoft.Json.JsonConvert.SerializeObject(configDoc, Newtonsoft.Json.Formatting.Indented);
-                File.WriteAllText(configPath, updatedConfigJson);
+                    if (node == null)
+                    {
+                        Console.WriteLine("⚠ XPath-узел не найден! Проверьте структуру страницы.");
+                        await Task.Delay(CheckInterval, cancellationToken);
+                        continue;
+                    }
 
-                await Task.Delay(CheckInterval, cancellationToken);
+                    string text = node.InnerText.Trim();
+                    string[] parts = text.Split(',');
+
+                    if (parts.Length < 3)
+                    {
+                        Console.WriteLine("⚠ Ошибка: Некорректный формат строки.");
+                        await Task.Delay(CheckInterval, cancellationToken);
+                        continue;
+                    }
+
+                    string value = parts[2].Trim();
+                    value = char.ToUpper(value[0]) + value.Substring(1);
+
+                    Console.WriteLine($"✅ Обновлено значение TypeWeek: {value}");
+
+                    // Обновляем в ScheduleOptions
+                    _scheduleOptions.CurrentValue.TypeWeek = value;
+
+                    // Сохраняем изменения в appsettings.json
+                    var configPath = Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json");
+
+                    if (File.Exists(configPath))
+                    {
+                        var configJson = await File.ReadAllTextAsync(configPath, cancellationToken);
+                        var configDoc = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(configJson);
+                        configDoc["ScheduleOptions"]["TypeWeek"] = value;
+                        var updatedConfigJson = Newtonsoft.Json.JsonConvert.SerializeObject(configDoc, Newtonsoft.Json.Formatting.Indented);
+                        await File.WriteAllTextAsync(configPath, updatedConfigJson, cancellationToken);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"⚠ Ошибка: файл appsettings.json не найден по пути {configPath}");
+                    }
+
+                    await Task.Delay(CheckInterval, cancellationToken);
+                }
+                catch (HttpRequestException ex)
+                {
+                    Console.WriteLine($"❌ Ошибка при HTTPS-запросе: {ex.Message}");
+                    await Task.Delay(TimeSpan.FromMinutes(5), cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ Неизвестная ошибка: {ex.Message}");
+                    await Task.Delay(TimeSpan.FromMinutes(5), cancellationToken);
+                }
             }
         }
 
