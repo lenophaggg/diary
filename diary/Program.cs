@@ -19,8 +19,6 @@ namespace diary
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            builder.Services.AddHostedService<TypeWeekDownloadService>();
-
             builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo("/app/keys"));
 
@@ -86,6 +84,12 @@ namespace diary
                     }
                 };
             });
+
+
+            builder.Services.AddHostedService<TypeWeekDownloadService>();
+
+            builder.Services.AddHostedService<ContactDownloadService>();
+
 
             // Add services to the container.
             builder.Services.AddControllersWithViews();
