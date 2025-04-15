@@ -84,7 +84,8 @@ namespace diary
                     }
                 };
             });
-
+            builder.Services.Configure<AcademicSettings>(
+    builder.Configuration.GetSection("AcademicSettings"));
 
             builder.Services.AddHostedService<TypeWeekDownloadService>();
 

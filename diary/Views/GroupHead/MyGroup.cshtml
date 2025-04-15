@@ -91,6 +91,29 @@
             </div>
         </div>
     </div>
+
+    <!-- Новый блок управления группой -->
+    <div class="rounded p-4 mt-4 bg-info w-50 bg-opacity-10">
+        <h3 class="text-primary">
+            Управление группой
+            <span title="Действия применяются ко всем студентам группы!" style="cursor: pointer;" class="text-danger fw-bold ms-2">⚠</span>
+        </h3>
+        <form id="groupManagementForm">
+            <div class="row align-items-end">
+                <div class="col-md-8 mb-3">
+                    <label for="newGroupNumber" class="form-label">Перенести группу в:</label>
+                    <input type="text" id="newGroupNumber" name="newGroupNumber" class="form-control" placeholder="Новый номер группы" />
+                </div>
+                <div class="col-md-4 mb-3 d-flex align-items-end">
+                    <button type="button" class="btn btn-primary" onclick="moveGroup()">Перенести</button>
+                </div>
+            </div>
+            <button type="button" class="btn btn-danger" onclick="clearGroup()">
+                <i class="fas fa-trash"></i> Исключить студентов из группы
+            </button>
+            <span id="groupUpdateStatus" class="ms-3 text-success fw-semibold"></span>
+        </form>
+    </div>
 </div>
 
 <!-- Модальное окно для добавления студента -->
@@ -119,7 +142,11 @@
             </form>
         </div>
     </div>
+
+    
 </div>
+
+
 
 @section scripts {
     <script src="~/js/MyGroup.js"></script>

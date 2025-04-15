@@ -13,10 +13,11 @@ using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using System.Drawing;
 using diary.Enums;
+using Microsoft.Extensions.Options;
 
 namespace diary.Controllers
 {
-
+    [Authorize(Roles = "Admin, GroupHead")]
     public class SharedController : Controller
     {
         private readonly ILogger<AdminController> _logger;
@@ -25,27 +26,41 @@ namespace diary.Controllers
         private readonly UserManager<IdentityUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
 
+        private readonly IOptionsMonitor<AcademicSettings> _academicSettings;
+        private readonly IConfiguration _configuration;
+
         public SharedController(ILogger<AdminController> logger,
             ApplicationDbContext applicationDbContext,
             DiaryDbContext diaryDbContext,
             UserManager<IdentityUser> userManager,
-            RoleManager<IdentityRole> roleManager)
+            RoleManager<IdentityRole> roleManager,
+             IOptionsMonitor<AcademicSettings> academicSettings,
+    IConfiguration configuration)
         {
             _logger = logger;
             _applicationDbContext = applicationDbContext;
             _diaryDbContext = diaryDbContext;
             _userManager = userManager;
             _roleManager = roleManager;
+            _academicSettings = academicSettings;
+            _configuration = configuration;
         }
 
         // Метод для отображения списка заявок
         [Authorize(Roles = "Admin, GroupHead")]
         [Route("{role}/{action}")]
-        public async Task<IActionResult> StudentAbsences()
+        public async Task<IActionResult> StudentAbsences(int page = 1, int pageSize = 10)
         {
-            var requests = await GetAbsenceRequestsAsync();
+            var allRequests = await GetAbsenceRequestsAsync();
+            int totalItems = allRequests.Count;
+            var pagedRequests = allRequests.Skip((page - 1) * pageSize).Take(pageSize).ToList();
 
-            return View(requests);
+            // Передача данных пагинации через ViewBag или через специальный ViewModel
+            ViewBag.CurrentPage = page;
+            ViewBag.PageSize = pageSize;
+            ViewBag.TotalItems = totalItems;
+
+            return View(pagedRequests);
         }
 
         [Authorize(Roles = "Admin, GroupHead")]
@@ -387,6 +402,8 @@ namespace diary.Controllers
                 }).ToList();
 
                 ViewBag.UserRole = "Admin";
+                ViewBag.Semester = _academicSettings.CurrentValue.CurrentSemester;
+                ViewBag.AcademicYear = _academicSettings.CurrentValue.CurrentAcademicYear;
             }
             else if (User.IsInRole("GroupHead"))
             {
@@ -401,8 +418,14 @@ namespace diary.Controllers
 
                 groupNumber = groupHead.Student.GroupNumber;
 
+                // Получаем значения из конфигурации
+                var currentSemester = _academicSettings.CurrentValue.CurrentSemester;
+                var currentAcademicYear = _academicSettings.CurrentValue.CurrentAcademicYear;
+
                 var classes = await _diaryDbContext.Classes
-                    .Where(c => c.GroupNumber == groupNumber)
+                    .Where(c => c.GroupNumber == groupNumber &&
+                                c.Semester == currentSemester &&
+                                c.AcademicYear == currentAcademicYear)
                     .ToListAsync();
 
                 var instructorIds = classes.Select(c => c.InstructorId).Distinct().ToList();
@@ -424,6 +447,8 @@ namespace diary.Controllers
 
                 ViewBag.UserRole = "GroupHead";
                 ViewBag.GroupNumber = groupNumber;
+                ViewBag.Semester = currentSemester;
+                ViewBag.AcademicYear = currentAcademicYear;
             }
             else
             {
@@ -436,9 +461,9 @@ namespace diary.Controllers
             });
         }
 
-        [Authorize(Roles = "Admin, GroupHead")]
+        [Authorize(Roles = "Admin")]
         [HttpGet]
-        public async Task<IActionResult> FilterClasses(string groupNumber)
+        public async Task<IActionResult> FilterClasses(string groupNumber, int? semester, string academicYear)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
@@ -446,23 +471,27 @@ namespace diary.Controllers
                 return Unauthorized();
             }
 
-            List<ClassData> classes;
+            IQueryable<ClassData> query = _diaryDbContext.Classes;
 
             if (User.IsInRole("Admin"))
             {
-                if (string.IsNullOrEmpty(groupNumber))
+                // Фильтрация для администратора
+                if (!string.IsNullOrEmpty(groupNumber))
                 {
-                    classes = await _diaryDbContext.Classes.ToListAsync();
+                    query = query.Where(c => c.GroupNumber == groupNumber);
                 }
-                else
+                if (semester.HasValue)
                 {
-                    classes = await _diaryDbContext.Classes
-                        .Where(c => c.GroupNumber == groupNumber)
-                        .ToListAsync();
+                    query = query.Where(c => c.Semester == semester.Value);
+                }
+                if (!string.IsNullOrEmpty(academicYear))
+                {
+                    query = query.Where(c => c.AcademicYear == academicYear);
                 }
             }
             else if (User.IsInRole("GroupHead"))
             {
+                // Для старосты фильтруем только по его группе
                 var groupHead = await _diaryDbContext.GroupHeads
                     .Include(gh => gh.Student)
                     .FirstOrDefaultAsync(gh => gh.UserId == user.Id);
@@ -473,18 +502,16 @@ namespace diary.Controllers
                 }
 
                 groupNumber = groupHead.Student.GroupNumber;
-
-                classes = await _diaryDbContext.Classes
-                    .Where(c => c.GroupNumber == groupNumber)
-                    .ToListAsync();
+                query = query.Where(c => c.GroupNumber == groupNumber);
             }
             else
             {
                 return Unauthorized();
             }
 
-            var instructorIds = classes.Select(c => c.InstructorId).Distinct().ToList();
+            var classes = await query.ToListAsync();
 
+            var instructorIds = classes.Select(c => c.InstructorId).Distinct().ToList();
             var instructors = await _applicationDbContext.PersonContacts
                 .Where(pc => instructorIds.Contains(pc.IdContact))
                 .ToDictionaryAsync(pc => pc.IdContact, pc => pc.NameContact);
@@ -543,10 +570,10 @@ namespace diary.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateClass(string subjectName, int semester, string academicYear, string lessonType, string instructorName, string groupNumber)
+        public async Task<IActionResult> CreateClass(string subjectName, int? semester, string academicYear, string lessonType, string instructorName, string groupNumber)
         {
             subjectName = subjectName.Trim();
-            academicYear = academicYear.Trim();
+            
 
             var instructor = await _applicationDbContext.PersonContacts
                 .FirstOrDefaultAsync(pc => pc.NameContact == instructorName);
@@ -580,6 +607,14 @@ namespace diary.Controllers
                 }
 
                 groupNumber = groupHead.Student.GroupNumber;
+
+                semester = _academicSettings.CurrentValue.CurrentSemester;
+                academicYear = _academicSettings.CurrentValue.CurrentAcademicYear;
+            }
+
+            if (semester == null)
+            {
+                return NotFound(new { success = false, message = "Семестр не может быть пустым" });
             }
 
             var exists = await _diaryDbContext.Classes
@@ -600,8 +635,8 @@ namespace diary.Controllers
                 Subject = subjectName,
                 InstructorId = instructor.IdContact,
                 GroupNumber = groupNumber,
-                Semester = semester,
-                AcademicYear = academicYear,
+                Semester = semester.Value,
+                AcademicYear = academicYear.Trim(),
                 Type = parsedLessonType
             };
 
@@ -612,7 +647,7 @@ namespace diary.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> UpdateClass(int classId, string subjectName, int semester, string academicYear, string lessonType, string instructorName, string groupNumber)
+        public async Task<IActionResult> UpdateClass(int classId, string subjectName, int? semester, string academicYear, string lessonType, string instructorName, string groupNumber)
         {
             var existingClass = await _diaryDbContext.Classes.FindAsync(classId);
             if (existingClass == null)
@@ -621,8 +656,7 @@ namespace diary.Controllers
             }
 
             existingClass.Subject = subjectName;
-            existingClass.Semester = semester;
-            existingClass.AcademicYear = academicYear;
+          
 
             if (!Enum.TryParse(lessonType, true, out LessonType parsedLessonType))
             {
@@ -659,12 +693,23 @@ namespace diary.Controllers
                     return NotFound("Group head not found");
                 }
 
+                existingClass.Semester = _academicSettings.CurrentValue.CurrentSemester;
+                existingClass.AcademicYear = _academicSettings.CurrentValue.CurrentAcademicYear;
+
                 existingClass.GroupNumber = groupHead.Student.GroupNumber;
             }
             else if (User.IsInRole("Admin"))
             {
                 // Администратор может изменять номер группы
                 existingClass.GroupNumber = groupNumber;
+
+                if (semester == null)
+                {
+                    return NotFound(new { success = false, message = "Семестр не может быть пустым" });
+                }
+
+                existingClass.Semester = semester.Value;
+                existingClass.AcademicYear = academicYear;
             }
 
             _diaryDbContext.Classes.Update(existingClass);
@@ -719,6 +764,8 @@ namespace diary.Controllers
         }
 
         [Route("{role}/{action}")]
+
+        [Authorize(Roles = "Admin, GroupHead")]
         public async Task<IActionResult> ManageAttendance(int classId)
         {
             var user = await _userManager.GetUserAsync(User);
@@ -999,6 +1046,25 @@ namespace diary.Controllers
                 var excelBytes = package.GetAsByteArray();
                 return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> DeleteAttendanceColumn(DateTime date, int sessionNumber)
+        {
+            // Convert DateTime to DateOnly for comparison
+            DateOnly dateOnly = DateOnly.FromDateTime(date);
+
+            var recordsToDelete = await _diaryDbContext.Attendance
+                .Where(a => a.Date == dateOnly && a.SessionNumber == sessionNumber)
+                .ToListAsync();
+
+            if (recordsToDelete.Any())
+            {
+                _diaryDbContext.Attendance.RemoveRange(recordsToDelete);
+                await _diaryDbContext.SaveChangesAsync();
+            }
+
+            return Ok();
         }
 
     }

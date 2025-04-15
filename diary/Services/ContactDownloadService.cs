@@ -155,47 +155,36 @@ namespace diary.Services
             var web = new HtmlWeb();
             var doc = await Task.Run(() => web.Load(url));
 
-            // Блок со списком сотрудников
-            var staffContent = doc.DocumentNode
-                .SelectSingleNode("//section[@id='staff_list']/details/div[@class='details_content']");
-
-            if (staffContent == null)
-            {
-                _logger.LogInformation("На странице {Url} не найден staff_list (сотрудники)", url);
-                return;
-            }
-
-            // Все карточки внутри details_content
-            var cardDivs = staffContent.SelectNodes(".//div[contains(@class, 'card')]");
+            // Получаем все карточки сотрудников из нового контейнера "faculty-per-content"
+            var cardDivs = doc.DocumentNode.SelectNodes("//div[@id='faculty-per-content']//div[contains(@class, 'card') and contains(@class, 'bg-body-tertiary')]");
             if (cardDivs == null || cardDivs.Count == 0)
             {
-                _logger.LogInformation("На странице {Url} нет карточек сотрудников", url);
+                _logger.LogInformation("На странице {Url} не найдены карточки сотрудников", url);
                 return;
             }
 
             foreach (var cardDiv in cardDivs)
             {
-                // Имя 
+                // Извлекаем имя сотрудника
                 var nameNode = cardDiv.SelectSingleNode(".//h4[@class='h6 text-info-dark']/a")
                                ?? cardDiv.SelectSingleNode(".//h4[@class='h6 text-info-dark']");
                 if (nameNode == null)
                     continue;
-
                 string name = nameNode.InnerText.Trim();
 
-                // Изображение + ID
+                // Извлекаем изображение и определяем ID сотрудника
                 var imgNode = cardDiv.SelectSingleNode(".//img");
                 string imgSrc = imgNode?.GetAttributeValue("src", "");
                 if (!string.IsNullOrEmpty(imgSrc))
                 {
-                    // Убираем параметры запроса (например, ?nocache=XXXX-XX-XX)
+                    // Убираем параметры запроса, если они присутствуют (например, ?nocache=...)
                     imgSrc = imgSrc.Split('?')[0];
                 }
 
                 string personId = null;
                 if (!string.IsNullOrEmpty(imgSrc))
                 {
-                    // Пример: .../p107994.jpg => 107994
+                    // Пример: .../p107994.jpg => извлекаем 107994
                     var match = Regex.Match(imgSrc, @"p(\d+)\.jpg$", RegexOptions.IgnoreCase);
                     if (match.Success)
                     {
@@ -203,7 +192,7 @@ namespace diary.Services
                     }
                 }
 
-                // Должности / учёные степени
+                // Извлекаем информацию о должностях и ученых степенях
                 var listItems = cardDiv.SelectNodes(".//ul[@class='fa-ul']/li");
                 var positions = new List<string>();
                 var academicTitles = new List<string>();
@@ -212,12 +201,12 @@ namespace diary.Services
                 {
                     foreach (var li in listItems)
                     {
-                        // Например, <i class="fa-solid fa-xs fa-briefcase"> => должность
+                        // Если в HTML содержится класс fa-briefcase, то считаем, что это должность
                         if (li.InnerHtml.Contains("fa-briefcase"))
                         {
                             positions.Add(li.InnerText.Trim());
                         }
-                        // <i class="fa-solid fa-xs fa-user-graduate"> => уч. степени
+                        // Если содержится класс fa-user-graduate, то это ученая степень
                         else if (li.InnerHtml.Contains("fa-user-graduate"))
                         {
                             academicTitles.Add(li.InnerText.Trim());
@@ -225,26 +214,52 @@ namespace diary.Services
                     }
                 }
 
-                // Создаём / обновляем запись
+                // Определяем путь к изображению
+                string finalImgPath = null;
+                if (!string.IsNullOrEmpty(imgSrc))
+                {
+                    string bigImgPath = imgSrc.Contains("/small/") ? imgSrc.Replace("/small/", "/big/") : imgSrc;
+                    string smallImgPath = imgSrc.Contains("/big/") ? imgSrc.Replace("/big/", "/small/") : imgSrc;
+
+                    // Проверяем доступность изображения /big/
+                    try
+                    {
+                        var response = await _httpClient.GetAsync($"https://isu.smtu.ru{bigImgPath}", HttpCompletionOption.ResponseHeadersRead);
+                        if (response.IsSuccessStatusCode)
+                        {
+                            finalImgPath = bigImgPath; // Если /big/ доступен, используем его
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Изображение {BigImgPath} недоступно (статус: {StatusCode}), пробуем /small/", bigImgPath, response.StatusCode);
+                            finalImgPath = smallImgPath; // Если /big/ вернул 404, используем /small/
+                        }
+                    }
+                    catch (HttpRequestException ex)
+                    {
+                        _logger.LogWarning(ex, "Ошибка при проверке изображения {BigImgPath}, используем /small/", bigImgPath);
+                        finalImgPath = smallImgPath; // В случае ошибки сети также используем /small/
+                    }
+                }
+
+                // Формируем данные сотрудника
                 var personData = new PersonContactData
                 {
                     UniversityIdContact = personId,
                     NameContact = name,
                     Position = positions.ToArray(),
                     AcademicDegree = academicTitles.Count > 0 ? string.Join("; ", academicTitles) : null,
-                    ImgPath = (imgSrc != null && imgSrc.Contains("/small/"))
-                        ? imgSrc.Replace("/small/", "/big/")
-                        : imgSrc
+                    ImgPath = finalImgPath
                 };
 
-                // Если нет personId, решаем — игнорировать или всё равно сохранять
+                // Если не удалось извлечь personId, логируем предупреждение и пропускаем запись
                 if (string.IsNullOrEmpty(personId))
                 {
                     _logger.LogWarning("Для {Name} не удалось извлечь ID (страница {Url}). Пропускаем...", name, url);
                     continue;
                 }
 
-                // Сохранение в базу
+                // Сохраняем данные в базу
                 using (var scope = _serviceProvider.CreateScope())
                 {
                     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -258,7 +273,7 @@ namespace diary.Services
                         existing.Position = personData.Position;
                         existing.AcademicDegree = personData.AcademicDegree;
                         existing.ImgPath = personData.ImgPath;
-                        // и так далее при необходимости
+                        // Обновляем другие поля при необходимости
                     }
                     else
                     {

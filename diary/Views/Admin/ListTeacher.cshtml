@@ -2,17 +2,16 @@
 
 @{
     ViewData["Title"] = "Список преподавателей";
+
+    int currentPage = ViewBag.CurrentPage;
+    int pageSize = ViewBag.PageSize;
+    int totalPages = ViewBag.TotalPages;
+    int startPage = currentPage - 2 > 1 ? currentPage - 2 : 1;
+    int endPage = currentPage + 2 < totalPages ? currentPage + 2 : totalPages;
 }
 
-<!-- Блок для отображения индикатора загрузки -->
-<div id="loader" style="display: block; text-align: center; margin-top: 20px;">
-    <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Загрузка...</span>
-    </div>
-</div>
-
-<!-- Контейнер с содержимым, скрыт при начальной загрузке -->
-<div class="container-fluid mt-4" style="display: none;">
+<!-- Контейнер с содержимым -->
+<div class="container-fluid mt-4">
     <h1 class="text-center">Список преподавателей</h1>
 
     <!-- Поле для поиска и кнопка добавления преподавателя -->
@@ -43,7 +42,6 @@
             <form id="addTeacherForm">
                 <div class="modal-header">
                     <h5 class="modal-title" id="addTeacherModalLabel">Добавить преподавателя</h5>
-                    
                 </div>
                 <div class="modal-body">
                     @Html.AntiForgeryToken()
@@ -64,8 +62,71 @@
     </div>
 </div>
 
+@if (totalPages > 1)
+{
+    <nav aria-label="Page navigation" class="mt-3">
+        <ul class="pagination justify-content-center">
+            @* Кнопка "Предыдущая" *@
+            @if (currentPage > 1)
+            {
+                <li class="page-item">
+                    <a class="page-link" href="@Url.Action("ListTeacher", "Admin", new { page = currentPage - 1, pageSize = pageSize })">Предыдущая</a>
+                </li>
+            }
+
+            @* Первая страница всегда отображается *@
+            <li class="page-item @(currentPage == 1 ? "active" : "")">
+                <a class="page-link" href="@Url.Action("ListTeacher", "Admin", new { page = 1, pageSize = pageSize })">1</a>
+            </li>
+
+            @* Если между первой и началом окна есть пропуск, выводим троеточие *@
+            @if (startPage > 2)
+            {
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            }
+
+            @* Выводим страницы внутри окна *@
+            @for (int i = startPage; i <= endPage; i++)
+            {
+                if (i != 1 && i != totalPages)
+                {
+                    <li class="page-item @(currentPage == i ? "active" : "")">
+                        <a class="page-link" href="@Url.Action("ListTeacher", "Admin", new { page = i, pageSize = pageSize })">@i</a>
+                    </li>
+                }
+            }
+
+            @* Если между концом окна и последней страницей есть пропуск, выводим троеточие *@
+            @if (endPage < totalPages - 1)
+            {
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            }
+
+            @* Последняя страница *@
+            @if (totalPages > 1)
+            {
+                <li class="page-item @(currentPage == totalPages ? "active" : "")">
+                    <a class="page-link" href="@Url.Action("ListTeacher", "Admin", new { page = totalPages, pageSize = pageSize })">@totalPages</a>
+                </li>
+            }
+
+            @* Кнопка "Следующая" *@
+            @if (currentPage < totalPages)
+            {
+                <li class="page-item">
+                    <a class="page-link" href="@Url.Action("ListTeacher", "Admin", new { page = currentPage + 1, pageSize = pageSize })">Следующая</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}
+
 @section scripts {
-    <!-- Подключение jQuery и Bootstrap (убедитесь, что они подключены до вашего скрипта) -->
+    <!-- Подключение jQuery и Bootstrap -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"
             integrity="sha256-K+0CWkDh0UgtNxO3eQZo8hQ7UtrhAyrx8WYpr3z1kKg="
             crossorigin="anonymous"></script>
@@ -73,6 +134,9 @@
             integrity="sha384-LtrjvnR4/J57fVAm6X5czX7T00vEV5a+LFvPDA6rXHqzA5S2jNzt7AAHN2hUeRZ/"
             crossorigin="anonymous"></script>
 
-    <!-- Подключение вашего отдельного файла со скриптами -->
+    <!-- Подключение Font Awesome для иконок -->
+    <script src="https://kit.fontawesome.com/your-font-awesome-kit.js" crossorigin="anonymous"></script>
+
+    <!-- Подключение вашего скрипта -->
     <script src="~/js/ListTeacher.js"></script>
 }

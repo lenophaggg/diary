@@ -340,11 +340,31 @@ namespace diary.Controllers
                 return NotFound("Student not found");
             }
 
+            // Удаляем связанные записи из attendance
+            var attendanceRecords = await _diaryDbContext.Attendance
+                .Where(a => a.StudentId == studentId)
+                .ToListAsync();
+            if (attendanceRecords.Any())
+            {
+                _diaryDbContext.Attendance.RemoveRange(attendanceRecords);
+            }
+
+            // Удаляем связанные записи из student_absences
+            var absenceRecords = await _diaryDbContext.StudentAbsences
+                .Where(sa => sa.StudentId == studentId)
+                .ToListAsync();
+            if (absenceRecords.Any())
+            {
+                _diaryDbContext.StudentAbsences.RemoveRange(absenceRecords);
+            }
+
+            // Удаляем самого студента
             _diaryDbContext.Students.Remove(student);
             await _diaryDbContext.SaveChangesAsync();
 
             return Ok(new { success = true });
         }
+
         // Метод отображения занятий по группам
         public async Task<IActionResult> Classes()
         {
@@ -414,7 +434,145 @@ namespace diary.Controllers
             return RedirectToAction("CreateStudentAbsenceRequest", "Shared");
         }
 
+        [HttpPost]
+        public async Task<IActionResult> ClearGroup(string groupNumber)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
 
+            // Находим запись старосты, которая привязана к текущему пользователю
+            var groupHead = await _diaryDbContext.GroupHeads
+                .Include(gh => gh.Student)
+                .FirstOrDefaultAsync(gh => gh.UserId == user.Id);
+
+            if (groupHead == null || groupHead.Student.GroupNumber != groupNumber)
+            {
+                return BadRequest(new { success = false, message = "Вы не можете очистить эту группу" });
+            }
+
+            var students = await _diaryDbContext.Students
+                .Where(s => s.GroupNumber == groupNumber)
+                .ToListAsync();
+
+            if (!students.Any())
+            {
+                return BadRequest(new { success = false, message = "В группе нет студентов" });
+            }
+
+            // Удаляем все занятия (classes), связанные с группой
+            var classes = await _diaryDbContext.Classes
+                .Where(c => c.GroupNumber == groupNumber)
+                .ToListAsync();
+            if (classes.Any())
+            {
+                _diaryDbContext.Classes.RemoveRange(classes);
+
+                // Удаляем все записи посещаемости, связанные с занятиями
+                var classIds = classes.Select(c => c.ClassId).ToList();
+                var attendanceRecords = await _diaryDbContext.Attendance
+                    .Where(a => classIds.Contains(a.ClassId))
+                    .ToListAsync();
+                if (attendanceRecords.Any())
+                {
+                    _diaryDbContext.Attendance.RemoveRange(attendanceRecords);
+                }
+            }
+
+            // Удаляем всех студентов из группы
+            _diaryDbContext.Students.RemoveRange(students);
+
+            // Удаляем запись старосты
+            _diaryDbContext.GroupHeads.Remove(groupHead);
+
+            // Удаляем Identity-пользователя, привязанного к старосте, если он существует
+            if (!string.IsNullOrEmpty(groupHead.UserId))
+            {
+                var identityUser = await _userManager.FindByIdAsync(groupHead.UserId);
+                if (identityUser != null)
+                {
+                    await _userManager.DeleteAsync(identityUser);
+                }
+            }
+
+            await _diaryDbContext.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> MoveGroup(string currentGroupNumber, string newGroupNumber)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            var groupHead = await _diaryDbContext.GroupHeads
+                .Include(gh => gh.Student)
+                .FirstOrDefaultAsync(gh => gh.UserId == user.Id);
+
+            if (groupHead == null || groupHead.Student.GroupNumber != currentGroupNumber)
+            {
+                return BadRequest(new { success = false, message = "Вы не можете управлять этой группой" });
+            }
+
+            if (currentGroupNumber == newGroupNumber)
+            {
+                return BadRequest(new { success = false, message = "Новая группа должна отличаться от текущей" });
+            }
+
+            // Проверяем, что целевая группа пуста
+            var targetStudents = await _diaryDbContext.Students
+                .Where(s => s.GroupNumber == newGroupNumber)
+                .ToListAsync();
+            if (targetStudents.Any())
+            {
+                return BadRequest(new { success = false, message = "Группа не пустая. Перенос невозможен." });
+            }
+
+            // Находим все занятия (classes) текущей группы
+            var classes = await _diaryDbContext.Classes
+                .Where(c => c.GroupNumber == currentGroupNumber)
+                .ToListAsync();
+            if (classes.Any())
+            {
+                _diaryDbContext.Classes.RemoveRange(classes);
+
+                // Удаляем записи посещаемости, связанные с занятиями
+                var classIds = classes.Select(c => c.ClassId).ToList();
+                var attendanceRecords = await _diaryDbContext.Attendance
+                    .Where(a => classIds.Contains(a.ClassId))
+                    .ToListAsync();
+                if (attendanceRecords.Any())
+                {
+                    _diaryDbContext.Attendance.RemoveRange(attendanceRecords);
+                }
+            }
+
+            // Находим всех студентов текущей группы
+            var students = await _diaryDbContext.Students
+                .Where(s => s.GroupNumber == currentGroupNumber)
+                .ToListAsync();
+
+            if (!students.Any())
+            {
+                return BadRequest(new { success = false, message = "В группе нет студентов" });
+            }
+
+            // Переносим всех студентов в новую группу
+            foreach (var student in students)
+            {
+                student.GroupNumber = newGroupNumber;
+            }
+
+            _diaryDbContext.Students.UpdateRange(students);
+            await _diaryDbContext.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
     }
 
 }

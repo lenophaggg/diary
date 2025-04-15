@@ -2,6 +2,8 @@
 
 @{
     ViewData["Title"] = "Admin Home Page";
+    var currentAcademicYear = ViewBag.CurrentAcademicYear as string ?? "Не задан";
+    var currentSemester = ViewBag.CurrentSemester?.ToString() ?? "1";
 }
 
 <head>
@@ -52,7 +54,66 @@
 
 
     }
-
-
+    <hr />
+    <div class="rounded p-4 mt-4 bg-info w-50 bg-opacity-10">
+        <h3 class="text-primary">
+            Установка текущего учебного года и семестра
+            <span title="Глобальная настройка! Влияет на отображение данных студентов, занятий и прочих доступных данных в интерфейсе." style="cursor: pointer;" class="text-danger fw-bold ms-2">&#9888;</span>
+        </h3>
+        <form id="academicSettingsForm">
+            <div class="row align-items-end">
+                <div class="col-md-8 mb-3">
+                    <label for="newAcademicYear" class="form-label">Текущий учебный год:</label>
+                    <input type="text" id="newAcademicYear" name="newAcademicYear" class="form-control" value="@currentAcademicYear" pattern="^\d{4}/\d{4}$" maxlength="9" placeholder="2024/2025" />
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="newSemester" class="form-label">Текущий семестр:</label>
+                    <input type="number" id="newSemester" name="newSemester" class="form-control" value="@currentSemester" min="1" max="2" placeholder="1" />
+                </div>
+            </div>
+            <button type="submit" class="btn btn-info text-white">Обновить</button>
+            <span id="settingsUpdateStatus" class="ms-3 text-success fw-semibold"></span>
+        </form>
+    </div>
 
 </body>
+
+@section scripts {
+    <script>
+        document.getElementById("academicSettingsForm").addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            const year = document.getElementById("newAcademicYear").value;
+            const semester = parseInt(document.getElementById("newSemester").value);
+            const status = document.getElementById("settingsUpdateStatus");
+
+            status.innerText = "";
+
+            const response = await fetch("/Admin/UpdateAcademicSettings", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    currentAcademicYear: year,
+                    currentSemester: semester
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    status.innerText = "Обновлено";
+                    status.classList.remove("text-danger");
+                    status.classList.add("text-success");
+                } else {
+                    status.innerText = data.message || "Ошибка";
+                    status.classList.remove("text-success");
+                    status.classList.add("text-danger");
+                }
+            } else {
+                status.innerText = "Ошибка при запросе";
+                status.classList.remove("text-success");
+                status.classList.add("text-danger");
+            }
+        });
+    </script>
+}

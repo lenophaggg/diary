@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -21,17 +23,24 @@ namespace diary.Controllers
         private readonly UserManager<IdentityUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
 
+        private readonly IOptionsMonitor<AcademicSettings> _academicSettings;
+        private readonly IConfiguration _configuration;
+
         public AdminController(ILogger<AdminController> logger,
             ApplicationDbContext applicationDbContext,
             DiaryDbContext diaryDbContext,
             UserManager<IdentityUser> userManager,
-            RoleManager<IdentityRole> roleManager)
+            RoleManager<IdentityRole> roleManager,
+             IOptionsMonitor<AcademicSettings> academicSettings,
+    IConfiguration configuration)
         {
             _logger = logger;
             _applicationDbContext = applicationDbContext;
             _diaryDbContext = diaryDbContext;
             _userManager = userManager;
             _roleManager = roleManager;
+            _academicSettings = academicSettings;
+            _configuration = configuration;
         }
 
         public async Task<IActionResult> Index()
@@ -52,7 +61,54 @@ namespace diary.Controllers
             var personContact = _applicationDbContext.PersonContacts
                 .FirstOrDefault(pc => pc.IdContact == personContactUser.PersonContactId);
 
+            ViewBag.CurrentAcademicYear = _academicSettings.CurrentValue.CurrentAcademicYear;
+            ViewBag.CurrentSemester = _academicSettings.CurrentValue.CurrentSemester;
+
             return View(personContact);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> UpdateAcademicSettings([FromBody] AcademicSettings model)
+        {
+            if (model == null)
+            {
+                return BadRequest(new { success = false, message = "Пустой запрос." });
+            }
+
+            if (string.IsNullOrWhiteSpace(model.CurrentAcademicYear) || !System.Text.RegularExpressions.Regex.IsMatch(model.CurrentAcademicYear, @"^\d{4}/\d{4}$"))
+            {
+                return BadRequest(new { success = false, message = "Неверный формат учебного года." });
+            }
+
+            if (model.CurrentSemester < 1 || model.CurrentSemester > 2)
+            {
+                return BadRequest(new { success = false, message = "Семестр должен быть 1 или 2." });
+            }
+
+            var configPath = Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json");
+
+            if (!System.IO.File.Exists(configPath))
+            {
+                return NotFound(new { success = false, message = "Файл appsettings.json не найден." });
+            }
+
+            try
+            {
+                var configJson = await System.IO.File.ReadAllTextAsync(configPath);
+                dynamic config = Newtonsoft.Json.JsonConvert.DeserializeObject(configJson);
+
+                config["AcademicSettings"]["CurrentAcademicYear"] = model.CurrentAcademicYear;
+                config["AcademicSettings"]["CurrentSemester"] = model.CurrentSemester;
+
+                var updatedJson = Newtonsoft.Json.JsonConvert.SerializeObject(config, Newtonsoft.Json.Formatting.Indented);
+                await System.IO.File.WriteAllTextAsync(configPath, updatedJson);
+
+                return Json(new { success = true, message = "Настройки обновлены." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = $"Ошибка при сохранении: {ex.Message}" });
+            }
         }
 
         public async Task<IActionResult> Classes()
@@ -123,11 +179,25 @@ namespace diary.Controllers
 
         // Метод для отображения списка преподавателей
         [HttpGet]
-        public async Task<IActionResult> ListTeacher()
+        public async Task<IActionResult> ListTeacher(int page = 1, int pageSize = 100)
         {
             try
             {
-                var teachers = await _applicationDbContext.PersonContacts.ToListAsync();
+                int totalItems = await _applicationDbContext.PersonContacts.CountAsync();
+                int totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
+
+                var teachers = await _applicationDbContext.PersonContacts
+                    .OrderBy(t => t.NameContact) // желательно задать порядок
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                // Передаём данные пагинации через ViewBag (или можно создать специальную ViewModel)
+                ViewBag.CurrentPage = page;
+                ViewBag.PageSize = pageSize;
+                ViewBag.TotalItems = totalItems;
+                ViewBag.TotalPages = totalPages;
+
                 return View(teachers);
             }
             catch (Exception ex)
@@ -455,122 +525,300 @@ namespace diary.Controllers
         #region ManageGroup
         public async Task<IActionResult> ListGroup()
         {
-            var groups = _applicationDbContext.Groups.ToList();
+            var groups = await _applicationDbContext.Groups.ToListAsync();
+            var actualGroups = await _applicationDbContext.ActualGroups.Select(ag => ag.GroupNumber).ToListAsync();
 
             var facultyGroups = groups
-                .Where(g => g.FacultyName != null) // Добавляем проверку на null
-                .OrderBy(g => g.Number) // Сортируем группы по номеру
+                .Where(g => g.FacultyName != null) // Проверка на null
+                .OrderBy(g => g.Number) // Сортировка групп по номеру
                 .GroupBy(g => g.FacultyName)
-                .OrderByDescending(g => g.Key) // Сортируем факультеты в обратном порядке
-                .ToDictionary(g => g.Key, g => g.Select(group => group.Number).ToArray());
+                .OrderByDescending(g => g.Key) // Сортировка факультетов в обратном порядке
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(group => new { Number = group.Number, IsActual = actualGroups.Contains(group.Number) })
+                         .Select(x => new KeyValuePair<string, bool>(x.Number, x.IsActual))
+                         .ToArray()
+                );
 
+            // Передаем Dictionary<string, KeyValuePair<string, bool>[]>, где bool указывает на актуальность
             return View(facultyGroups);
         }
 
         [HttpGet]
-        public async Task<IActionResult> GroupDetails(string id, string academicYear = null, int? semester = null)
+        public async Task<IActionResult> GroupDetails(string id)
         {
             if (string.IsNullOrEmpty(id))
             {
                 return RedirectToAction("Index", "Admin");
             }
 
-            string group = id;
-
-            // Получаем список студентов группы
             var students = await _diaryDbContext.Students
-                .Where(s => s.GroupNumber == group)
+                .Where(s => s.GroupNumber == id)
                 .ToListAsync();
 
-            // Получаем старосту группы
             var grouphead = await _diaryDbContext.GroupHeads
                 .Include(gh => gh.Student)
-                .Where(gh => gh.Student.GroupNumber == group)
+                .Where(gh => gh.Student.GroupNumber == id)
                 .Select(gh => gh.Student)
                 .FirstOrDefaultAsync();
 
-            // Фильтруем данные посещаемости по учебному году и семестру
-            var attendanceQuery = _diaryDbContext.Attendance
+            // Убираем фильтры по academicYear и semester, получаем все данные о посещаемости
+            var attendanceData = await _diaryDbContext.Attendance
                 .Include(a => a.Class)
                 .Include(a => a.Student)
-                .Where(a => a.Student.GroupNumber == group);
-
-            if (!string.IsNullOrEmpty(academicYear))
-            {
-                attendanceQuery = attendanceQuery.Where(a => a.Class.AcademicYear == academicYear);
-            }
-
-            if (semester.HasValue)
-            {
-                attendanceQuery = attendanceQuery.Where(a => a.Class.Semester == semester.Value);
-            }
-
-            var attendanceData = await attendanceQuery
-                .Select(a => new
+                .Where(a => a.Student.GroupNumber == id && a.Class.GroupNumber == id)
+                .Select(a => new AttendanceReport
                 {
-                    a.Student.StudentId,
-                    a.Student.Name,
-                    a.Class.Subject,
-                    a.Class.AcademicYear,
-                    a.Class.Semester,
-                    a.IsPresent,
-                    a.IsExcusedAbsence,
-                    a.Date,
-                    a.SessionNumber
+                    StudentId = a.StudentId.ToString(),
+                    StudentName = a.Student.Name,
+                    SubjectName = a.Class.Subject,
+                    LessonType = a.Class.Type.ToString().ToLowerInvariant(),
+                    AcademicYear = a.Class.AcademicYear,
+                    Semester = a.Class.Semester,
+                    Date = a.Date,
+                    SessionNumber = a.SessionNumber,
+                    IsPresent = a.IsPresent,
+                    IsExcusedAbsence = a.IsExcusedAbsence,
+                    AttendancePercentage = 0.0
                 })
                 .ToListAsync();
 
-            // Получаем общее количество занятий по каждому предмету, году и семестру
-            var totalClassesPerSubject = attendanceData
-                .GroupBy(a => new { a.Subject, a.AcademicYear, a.Semester })
-                .Select(g => new
-                {
-                    g.Key.Subject,
-                    g.Key.AcademicYear,
-                    g.Key.Semester,
-                    TotalClasses = g
-                        .Select(a => new { a.Date, a.SessionNumber })
-                        .Distinct()
-                        .Count()
-                })
-                .ToList();
-
-            // Группируем данные по студенту, предмету, году и семестру и рассчитываем посещаемость
-            var attendanceReports = attendanceData
-                .GroupBy(a => new { a.StudentId, a.Name, a.Subject, a.AcademicYear, a.Semester })
-                .Select(g => new AttendanceReport
-                {
-                    StudentId = g.Key.StudentId.ToString(),
-                    StudentName = g.Key.Name,
-                    SubjectName = g.Key.Subject,
-                    AcademicYear = g.Key.AcademicYear,
-                    Semester = g.Key.Semester,
-                    AttendancePercentage = totalClassesPerSubject.FirstOrDefault(t =>
-                        t.Subject == g.Key.Subject &&
-                        t.AcademicYear == g.Key.AcademicYear &&
-                        t.Semester == g.Key.Semester)?.TotalClasses > 0
-                        ? ((double)g.Count(a => a.IsPresent) / totalClassesPerSubject.First(t =>
-                            t.Subject == g.Key.Subject &&
-                            t.AcademicYear == g.Key.AcademicYear &&
-                            t.Semester == g.Key.Semester).TotalClasses) * 100
-                        : 0.0
-                })
-                .ToList();
-
-            // Передаем значения фильтров во ViewBag
-            ViewBag.AcademicYear = academicYear;
-            ViewBag.Semester = semester;
-
             var groupDetailsViewModel = new GroupDetailsViewModel
             {
-                GroupNumber = group,
+                GroupNumber = id,
                 Students = students,
                 GroupHead = grouphead,
-                AttendanceReports = attendanceReports
+                AttendanceJournal = attendanceData,
+                MonthlyAttendanceReports = new List<MonthlyAttendanceReport>()
             };
 
+            // Убираем ViewBag, так как фильтры больше не нужны
             return View(groupDetailsViewModel);
         }
+
+        [HttpPost]
+        public async Task<IActionResult> DeleteGroup(string groupNumber)
+        {
+            try
+            {
+                // Проверка входного параметра
+                if (string.IsNullOrEmpty(groupNumber))
+                {
+                    return BadRequest("Номер группы не указан.");
+                }
+
+                // Проверка авторизации
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    return Unauthorized();
+                }
+
+                // Удаляем из ApplicationDb
+                var group = await _applicationDbContext.Groups
+                    .FirstOrDefaultAsync(g => g.Number == groupNumber);
+
+                if (group != null)
+                {
+                    _applicationDbContext.Groups.Remove(group);
+                }
+
+                var actualGroup = await _applicationDbContext.ActualGroups
+                    .FirstOrDefaultAsync(ag => ag.GroupNumber == groupNumber);
+
+                if (actualGroup != null)
+                {
+                    _applicationDbContext.ActualGroups.Remove(actualGroup);
+                }
+
+                var scheduleData = await _applicationDbContext.Schedules
+                    .Where(s => s.Group == groupNumber)
+                    .ToListAsync();
+
+                if (scheduleData.Any())
+                {
+                    _applicationDbContext.Schedules.RemoveRange(scheduleData);
+                }
+
+                // Удаляем студентов, занятия и посещаемость через внутренний метод
+                await ClearGroupInternal(groupNumber);
+
+                await _applicationDbContext.SaveChangesAsync();
+                await _diaryDbContext.SaveChangesAsync();
+
+                return Ok(new { success = true, message = "Группа успешно удалена." });
+            }
+            catch (Exception ex)
+            {
+                // Логирование ошибки (лучше использовать ILogger)
+                Console.WriteLine(ex.Message);
+                return StatusCode(500, new { success = false, message = "Ошибка при удалении группы." });
+            }
+        }
+
+        private async Task ClearGroupInternal(string groupNumber)
+        {
+            // Проверка входного параметра
+            if (string.IsNullOrEmpty(groupNumber))
+            {
+                return; // Можно добавить логирование, если нужно
+            }
+
+            var students = await _diaryDbContext.Students
+                .Where(s => s.GroupNumber == groupNumber)
+                .ToListAsync();
+
+            // Если студентов нет, просто завершаем выполнение
+            if (!students.Any())
+            {
+                return;
+            }
+
+            // Удаляем все занятия (classes), связанные с группой
+            var classes = await _diaryDbContext.Classes
+                .Where(c => c.GroupNumber == groupNumber)
+                .ToListAsync();
+            if (classes.Any())
+            {
+                _diaryDbContext.Classes.RemoveRange(classes);
+
+                // Удаляем все записи посещаемости (attendance), связанные с занятиями
+                var classIds = classes.Select(c => c.ClassId).ToList();
+                var attendanceRecords = await _diaryDbContext.Attendance
+                    .Where(a => classIds.Contains(a.ClassId))
+                    .ToListAsync();
+                if (attendanceRecords.Any())
+                {
+                    _diaryDbContext.Attendance.RemoveRange(attendanceRecords);
+                }
+            }
+
+            // Удаляем старосту, если он есть
+            var groupHead = await _diaryDbContext.GroupHeads
+                .FirstOrDefaultAsync(gh => gh.Student.GroupNumber == groupNumber);
+            if (groupHead != null)
+            {
+                if (!string.IsNullOrEmpty(groupHead.UserId))
+                {
+                    var identityUser = await _userManager.FindByIdAsync(groupHead.UserId);
+                    if (identityUser != null)
+                    {
+                        await _userManager.DeleteAsync(identityUser);
+                    }
+                }
+                _diaryDbContext.GroupHeads.Remove(groupHead);
+            }
+
+            // Удаляем всех студентов из группы
+            _diaryDbContext.Students.RemoveRange(students);
+        }
+
+        // Метод для HTTP-запроса
+        [HttpPost]
+        public async Task<IActionResult> ClearGroup(string groupNumber)
+        {
+            try
+            {
+                // Проверка входного параметра
+                if (string.IsNullOrEmpty(groupNumber))
+                {
+                    return BadRequest(new { success = false, message = "Номер группы не указан." });
+                }
+
+                // Проверка авторизации
+                var user = await _userManager.GetUserAsync(User);
+                if (user == null)
+                {
+                    return Unauthorized();
+                }
+
+                var students = await _diaryDbContext.Students
+                    .Where(s => s.GroupNumber == groupNumber)
+                    .ToListAsync();
+
+                if (!students.Any())
+                {
+                    return Json(new { success = true, message = "В группе нет студентов, очистка не требуется." });
+                }
+
+                // Вызываем внутренний метод очистки
+                await ClearGroupInternal(groupNumber);
+
+                await _diaryDbContext.SaveChangesAsync();
+                return Json(new { success = true, message = "Группа успешно очищена." });
+            }
+            catch (Exception ex)
+            {
+                // Логирование ошибки (лучше использовать ILogger)
+                Console.WriteLine(ex.Message);
+                return StatusCode(500, new { success = false, message = "Ошибка при очистке группы." });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> MoveGroup(string currentGroupNumber, string newGroupNumber)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            if (currentGroupNumber == newGroupNumber)
+            {
+                return BadRequest(new { success = false, message = "Новая группа должна отличаться от текущей" });
+            }
+
+            // Проверяем, что целевая группа пуста
+            var targetStudents = await _diaryDbContext.Students
+                .Where(s => s.GroupNumber == newGroupNumber)
+                .ToListAsync();
+            if (targetStudents.Any())
+            {
+                return BadRequest(new { success = false, message = "Группа не пустая. Перенос невозможен." });
+            }
+
+            // Находим всех студентов текущей группы
+            var students = await _diaryDbContext.Students
+                .Where(s => s.GroupNumber == currentGroupNumber)
+                .ToListAsync();
+
+            if (!students.Any())
+            {
+                return BadRequest(new { success = false, message = "В группе нет студентов" });
+            }
+
+            // Удаляем все занятия (classes), связанные с текущей группой
+            var classes = await _diaryDbContext.Classes
+                .Where(c => c.GroupNumber == currentGroupNumber)
+                .ToListAsync();
+            if (classes.Any())
+            {
+                _diaryDbContext.Classes.RemoveRange(classes);
+
+                // Удаляем все записи посещаемости (attendance), связанные с занятиями
+                var classIds = classes.Select(c => c.ClassId).ToList();
+                var attendanceRecords = await _diaryDbContext.Attendance
+                    .Where(a => classIds.Contains(a.ClassId))
+                    .ToListAsync();
+                if (attendanceRecords.Any())
+                {
+                    _diaryDbContext.Attendance.RemoveRange(attendanceRecords);
+                }
+            }
+
+            // Переносим всех студентов в новую группу
+            foreach (var student in students)
+            {
+                student.GroupNumber = newGroupNumber;
+            }
+
+            _diaryDbContext.Students.UpdateRange(students);
+            await _diaryDbContext.SaveChangesAsync();
+
+            return Json(new { success = true });
+        }
+
         #endregion
 
         #region GroupHead

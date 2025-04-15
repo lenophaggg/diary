@@ -11,6 +11,12 @@ namespace diary.Models
         // Другие свойства, если они есть
     }
 
+    public class AcademicSettings
+    {
+        public string CurrentAcademicYear { get; set; }
+        public int CurrentSemester { get; set; }
+    }
+
     [PrimaryKey("ScheduleId")]
     [Table("schedules")]
     public class ScheduleData
@@ -139,6 +145,13 @@ namespace diary.Models
         public string? FacultyName { get; set; }
         [ForeignKey("FacultyName")]
         public FacultyData Faculty { get; set; }
+    }
+    [Table("actual_groups")]
+    [PrimaryKey("GroupNumber")]
+    public class ActualGroup
+    {
+        [Column("groupnumber")]
+        public string GroupNumber { get; set; }
     }
 
     [PrimaryKey("ClassroomNumber")]

@@ -2,6 +2,15 @@
 
 @{
     ViewData["Title"] = "Заявки на отсутствие студентов группы";
+    int currentPage = ViewBag.CurrentPage ?? 1;
+    int pageSize = ViewBag.PageSize ?? 10;
+    int totalItems = ViewBag.TotalItems ?? 0;
+    int totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
+
+    // Параметры для отображаемых страниц: будем выводить 2 страницы до и после текущей.
+    int window = 2;
+    int startPage = Math.Max(2, currentPage - window);
+    int endPage = Math.Min(totalPages - 1, currentPage + window);
 }
 
 <div class="container-fluid mt-4">
@@ -15,20 +24,83 @@
         </a>
         <div>
             <input type="checkbox" id="showSubmittedOnly" class="form-check-input" />
-            <label for="showSubmittedOnly" class="form-check-label">Показать только со статусом "Отправлено"</label>
+            <label for="showSubmittedOnly" class="form-check-label">
+                Показать только со статусом "Отправлено"
+            </label>
         </div>
     </div>
 
     <div class="table-responsive mt-2" id="absencesTableContainer">
         @await Html.PartialAsync("_AbsencesTable", Model)
     </div>
+
+    <!-- Пагинация -->
+    @if (totalPages > 1)
+    {
+        <nav aria-label="Page navigation" class="mt-3">
+            <ul class="pagination justify-content-center">
+                @* Кнопка "Предыдущая" *@
+                @if (currentPage > 1)
+                {
+                    <li class="page-item">
+                        <a class="page-link" href="@Url.Action("StudentAbsences", "Shared", new { page = currentPage - 1, pageSize = pageSize })">Предыдущая</a>
+                    </li>
+                }
+
+                @* Первая страница всегда отображается *@
+                <li class="page-item @(currentPage == 1 ? "active" : "")">
+                    <a class="page-link" href="@Url.Action("StudentAbsences", "Shared", new { page = 1, pageSize = pageSize })">1</a>
+                </li>
+
+                @* Если между первой и началом окна есть пропуск, выводим троеточие *@
+                @if (startPage > 2)
+                {
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                }
+
+                @* Выводим страницы внутри окна *@
+                @for (int i = startPage; i <= endPage; i++)
+                {
+                    <li class="page-item @(currentPage == i ? "active" : "")">
+                        <a class="page-link" href="@Url.Action("StudentAbsences", "Shared", new { page = i, pageSize = pageSize })">@i</a>
+                    </li>
+                }
+
+                @* Если между концом окна и последней страницей есть пропуск, выводим троеточие *@
+                @if (endPage < totalPages - 1)
+                {
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                }
+
+                @* Последняя страница *@
+                @if (totalPages > 1)
+                {
+                    <li class="page-item @(currentPage == totalPages ? "active" : "")">
+                        <a class="page-link" href="@Url.Action("StudentAbsences", "Shared", new { page = totalPages, pageSize = pageSize })">@totalPages</a>
+                    </li>
+                }
+
+                @* Кнопка "Следующая" *@
+                @if (currentPage < totalPages)
+                {
+                    <li class="page-item">
+                        <a class="page-link" href="@Url.Action("StudentAbsences", "Shared", new { page = currentPage + 1, pageSize = pageSize })">Следующая</a>
+                    </li>
+                }
+            </ul>
+        </nav>
+    }
 </div>
 
 @section scripts {
     <script>
+        // Обработчик для AJAX-фильтрации заявок по статусу "Отправлено"
         document.getElementById("showSubmittedOnly").addEventListener("change", function () {
             var showSubmittedOnly = this.checked;
-
             $.ajax({
                 url: '@Url.Action("GetSubmittedAbsences", "Shared")',
                 type: 'GET',

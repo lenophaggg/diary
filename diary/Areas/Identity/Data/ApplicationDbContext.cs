@@ -20,6 +20,7 @@ namespace diary.Data
 
         public DbSet<FacultyData> Faculties { get; set; }
         public DbSet<GroupData> Groups { get; set; }
+        public DbSet<ActualGroup> ActualGroups { get; set; }
 
         public DbSet<ClassroomData> Classrooms { get; set; }
 

@@ -176,3 +176,67 @@ function removeStudent(studentId) {
         }
     });
 }
+
+// Очистка группы
+function clearGroup() {
+    if (confirm('Вы уверены, что хотите очистить группу? Все студенты будут отвязаны от группы.')) {
+        const groupNumber = document.getElementById('groupNumber').textContent.trim().split(' ').pop();
+
+        $.ajax({
+            url: '/Admin/ClearGroup',
+            type: 'POST',
+            data: {
+                groupNumber: groupNumber
+            },
+            success: function (response) {
+                if (response.success) {
+                    document.getElementById('groupUpdateStatus').textContent = 'Группа очищена';
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    alert(response.message || 'Ошибка при очистке группы');
+                }
+            },
+            error: function () {
+                alert('Ошибка при выполнении запроса');
+            }
+        });
+    }
+}
+
+// Перенос группы
+function moveGroup() {
+    const newGroupNumber = document.getElementById('newGroupNumber').value.trim();
+    const currentGroupNumber = document.getElementById('groupNumber').textContent.trim().split(' ').pop();
+
+    if (!newGroupNumber) {
+        alert('Пожалуйста, укажите номер новой группы');
+        return;
+    }
+
+    if (newGroupNumber === currentGroupNumber) {
+        alert('Новая группа должна отличаться от текущей');
+        return;
+    }
+
+    if (confirm('Вы уверены, что хотите перенести всех студентов в группу ' + newGroupNumber + '?')) {
+        $.ajax({
+            url: '/Admin/MoveGroup',
+            type: 'POST',
+            data: {
+                currentGroupNumber: currentGroupNumber,
+                newGroupNumber: newGroupNumber
+            },
+            success: function (response) {
+                if (response.success) {
+                    document.getElementById('groupUpdateStatus').textContent = 'Группа перенесена';
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    alert(response.message || 'Ошибка при переносе группы');
+                }
+            },
+            error: function () {
+                alert('Ошибка при выполнении запроса');
+            }
+        });
+    }
+}

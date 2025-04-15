@@ -1,12 +1,11 @@
-﻿@model Dictionary<string, string[]>
+﻿@model Dictionary<string, KeyValuePair<string, bool>[]>
 
 @{
     ViewData["Title"] = "List Group Page";
 }
 
 <style>
-    /* Добавление отступа между контейнерами */
-    .container+.container {
+    .container + .container {
         margin-top: 20px;
         padding: 0px;
     }
@@ -14,11 +13,20 @@
     .schedule-item {
         text-align: center;
         padding: 10px;
-        border: 1px solid #ddd;
         margin: 5px 0;
+        position: relative;
+        color: white;
+    }
+
+    .delete-btn {
+        position: absolute;
+        
+        right: 5px;
         cursor: pointer;
-        background-color: transparent;
-        color: inherit;
+        color: white;
+        background: none;
+        border: none;
+        font-size: 1rem;
     }
 </style>
 
@@ -29,11 +37,17 @@
         <div class="row">
             @if (facultySchedule.Value.Any())
             {
-                foreach (var scheduleItem in facultySchedule.Value)
+                foreach (var group in facultySchedule.Value)
                 {
                     <div class="col-6 col-md-3 col-lg-2">
-                        <a asp-action="GroupDetails" asp-route-id="@scheduleItem"
-                            class="btn btn-outline-light w-100 schedule-item fs-5">@scheduleItem</a>
+                        <div class="schedule-item btn @(group.Value ? "btn-success" : "btn-secondary") w-100 fs-5">
+                            <a asp-action="GroupDetails" asp-route-id="@group.Key" class="text-white text-decoration-none">
+                                @group.Key
+                            </a>
+                            <button class="delete-btn" onclick="deleteGroup('@group.Key')">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
                     </div>
                 }
             }
@@ -43,4 +57,11 @@
             }
         </div>
     </div>
+}
+
+@section scripts {
+   
+
+    <!-- Подключение вашего скрипта -->
+    <script src="~/js/ListGroup.js"></script>
 }

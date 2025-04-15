@@ -1,14 +1,217 @@
-﻿document.addEventListener('DOMContentLoaded', function () {
+﻿document.addEventListener('DOMContentLoaded', () => {
+    const loader = document.getElementById('loader');
+    const contentContainer = document.getElementById('contentContainer');
 
-    // Отображаем индикатор загрузки
-    document.getElementById('loader').style.display = 'block';
-
-    // Инициализируем страницу
     initializePage();
 
     function initializePage() {
+        showLoader(true);
+        populateLessonTypes();
+        populateInstructorDatalist();
+        attachEventListeners();
+        updateLessonTypes();
+        showLoader(false);
+    }
 
-        // Сопоставление типов занятий с отображаемыми названиями
+    function showLoader(show) {
+        loader.style.display = show ? 'block' : 'none';
+        contentContainer.style.display = show ? 'none' : 'block';
+    }
+
+    function populateLessonTypes() {
+        const lessonTypes = {
+            'laboratoryworks': 'Лабораторные работы',
+            'practicalclasses': 'Практические занятия',
+            'seminars': 'Семинары',
+            'colloquiums': 'Коллоквиумы',
+            'lectures': 'Лекции',
+            'consultations': 'Консультации'
+        };
+
+        const lessonTypesContainer = document.getElementById('lessonTypes');
+        if (!lessonTypesContainer) return;
+
+        lessonTypesContainer.innerHTML = Object.entries(lessonTypes)
+            .map(([key, value]) => `
+                <div class="form-check">
+                    <input type="radio" class="form-check-input" id="${key}" name="lessonType" value="${key}" required>
+                    <label class="form-check-label" for="${key}">${value}</label>
+                </div>
+            `)
+            .join('');
+    }
+
+    function populateInstructorDatalist() {
+        fetch('/Shared/GetInstructors')
+            .then(response => {
+                if (!response.ok) throw new Error('Ошибка при загрузке преподавателей');
+                return response.json();
+            })
+            .then(data => {
+                const instructorList = document.getElementById('instructorList');
+                if (instructorList) {
+                    instructorList.innerHTML = data.map(i => `<option value="${i.nameContact}" data-id="${i.idContact}"></option>`).join('');
+                }
+            })
+            .catch(error => alert(error.message));
+    }
+
+    function attachEventListeners() {
+        const createForm = document.getElementById('createClassForm');
+        if (createForm) createForm.addEventListener('submit', handleFormSubmit);
+
+        const filterForm = document.getElementById('filterForm');
+        if (filterForm) filterForm.addEventListener('submit', handleFilterSubmit);
+    }
+
+    function handleFormSubmit(e) {
+        e.preventDefault();
+        const form = e.target;
+
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return;
+        }
+
+        const classId = document.getElementById('classId').value;
+        const action = classId ? 'UpdateClass' : 'CreateClass';
+        const data = new FormData();
+
+        // Common fields for both roles
+        data.append('subjectName', document.getElementById('subjectName').value.trim());
+        data.append('instructorName', document.getElementById('instructorName').value.trim());
+        const lessonType = form.querySelector('input[name="lessonType"]:checked')?.value;
+        if (!lessonType) {
+            alert('Пожалуйста, выберите тип занятия.');
+            return;
+        }
+        data.append('lessonType', lessonType);
+
+        // Admin-only fields
+        const groupNumberEl = document.getElementById('groupNumber');
+        const semesterEl = document.getElementById('semester');
+        const academicYearEl = document.getElementById('academicYear');
+        if (groupNumberEl) data.append('groupNumber', groupNumberEl.value.trim());
+        if (semesterEl) data.append('semester', semesterEl.value);
+        if (academicYearEl) data.append('academicYear', academicYearEl.value.trim());
+
+        // Add classId for updates
+        if (classId) data.append('classId', classId);
+
+        fetch(`/Shared/${action}`, {
+            method: 'POST',
+            body: new URLSearchParams(data)
+        })
+            .then(response => {
+                if (!response.ok) throw new Error(`Ошибка при ${classId ? 'обновлении' : 'создании'} занятия`);
+                return response.json();
+            })
+            .then(res => {
+                if (res.success) {
+                    location.reload();
+                } else {
+                    alert(res.message || `Ошибка при ${classId ? 'обновлении' : 'создании'} занятия`);
+                }
+            })
+            .catch(error => alert(error.message));
+    }
+
+    function handleFilterSubmit(e) {
+        e.preventDefault();
+        const form = e.target;
+
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return;
+        }
+
+        const groupNumber = document.getElementById('searchGroupInput')?.value.trim() || '';
+        const semester = document.getElementById('searchSemesterInput')?.value.trim() || '';
+        const academicYear = document.getElementById('searchAcademicYearInput')?.value.trim() || '';
+
+        const params = new URLSearchParams();
+        if (groupNumber) params.append('groupNumber', groupNumber);
+        if (semester) params.append('semester', semester);
+        if (academicYear) params.append('academicYear', academicYear);
+
+        showLoader(true);
+
+        fetch(`/Shared/FilterClasses?${params.toString()}`)
+            .then(res => {
+                if (!res.ok) throw new Error('Ошибка при фильтрации занятий');
+                return res.text();
+            })
+            .then(html => {
+                document.getElementById('classesTableContainer').innerHTML = html;
+                updateLessonTypes();
+                showLoader(false);
+            })
+            .catch(error => {
+                alert(error.message);
+                showLoader(false);
+            });
+    }
+
+    window.openCreateClassModal = function () {
+        resetForm();
+        new bootstrap.Modal(document.getElementById('createClassModal')).show();
+    };
+
+    window.openEditClassModal = function (classId) {
+        resetForm();
+        fetch(`/Shared/GetClass?classId=${classId}`)
+            .then(res => {
+                if (!res.ok) throw new Error('Ошибка загрузки данных занятия');
+                return res.json();
+            })
+            .then(data => {
+                document.getElementById('classId').value = data.classId;
+                document.getElementById('subjectName').value = data.subject || '';
+                document.getElementById('instructorName').value = data.instructorName || '';
+
+                const groupNumberEl = document.getElementById('groupNumber');
+                const semesterEl = document.getElementById('semester');
+                const academicYearEl = document.getElementById('academicYear');
+                if (groupNumberEl) groupNumberEl.value = data.groupNumber || '';
+                if (semesterEl) semesterEl.value = data.semester || '';
+                if (academicYearEl) academicYearEl.value = data.academicYear || '';
+
+                const lessonTypeRadio = document.querySelector(`#lessonTypes input[value="${data.lessonType?.toLowerCase()}"]`);
+                if (lessonTypeRadio) lessonTypeRadio.checked = true;
+
+                document.getElementById('createClassModalLabel').textContent = 'Редактировать занятие';
+                new bootstrap.Modal(document.getElementById('createClassModal')).show();
+            })
+            .catch(error => alert(error.message));
+    };
+
+    window.deleteClass = function (classId) {
+        if (!confirm('Удалить занятие?')) return;
+
+        fetch('/Shared/DeleteClass', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `classId=${classId}`
+        })
+            .then(res => {
+                if (!res.ok) throw new Error('Ошибка при удалении занятия');
+                return res.json();
+            })
+            .then(res => res.success ? location.reload() : alert(res.message || 'Ошибка при удалении'))
+            .catch(error => alert(error.message));
+    };
+
+    function resetForm() {
+        const form = document.getElementById('createClassForm');
+        if (form) {
+            form.reset();
+            form.classList.remove('was-validated');
+            document.getElementById('classId').value = '';
+            document.getElementById('createClassModalLabel').textContent = 'Создать занятие';
+        }
+    }
+
+    function updateLessonTypes() {
         const lessonTypeMapping = {
             'laboratoryworks': 'Лабораторные работы',
             'practicalclasses': 'Практические занятия',
@@ -18,296 +221,9 @@
             'consultations': 'Консультации'
         };
 
-        // Заполняем радио-кнопки типов занятий
-        populateLessonTypes();
-
-        function populateLessonTypes() {
-            const lessonTypesContainer = document.getElementById('lessonTypes');
-            if (lessonTypesContainer) {
-                Object.keys(lessonTypeMapping).forEach(type => {
-                    const div = document.createElement('div');
-                    div.className = 'form-check';
-
-                    const radio = document.createElement('input');
-                    radio.type = 'radio';
-                    radio.id = type;
-                    radio.value = type;
-                    radio.name = 'lessonType';
-                    radio.className = 'form-check-input';
-
-                    const label = document.createElement('label');
-                    label.htmlFor = type;
-                    label.textContent = lessonTypeMapping[type];
-                    label.className = 'form-check-label';
-
-                    div.appendChild(radio);
-                    div.appendChild(label);
-                    lessonTypesContainer.appendChild(div);
-                });
-            }
-        }
-
-        // Обновляем отображение типов занятий в таблице
-        updateLessonTypes();
-
-        function updateLessonTypes() {
-            const lessonTypeElements = document.querySelectorAll('.lesson-type');
-            if (lessonTypeElements.length > 0) {
-                lessonTypeElements.forEach(function (element) {
-                    const type = element.dataset.lessonType;
-                    if (type && lessonTypeMapping[type.toLowerCase()]) {
-                        element.textContent = lessonTypeMapping[type.toLowerCase()];
-                    } else {
-                        element.textContent = 'Неизвестный тип';
-                    }
-                });
-            }
-        }
-
-        // Заполняем список преподавателей
-        populateInstructorDatalist();
-
-        function populateInstructorDatalist() {
-            $.ajax({
-                url: '/Shared/GetInstructors',
-                type: 'GET',
-                success: function (instructors) {
-                    const instructorList = document.getElementById('instructorList');
-                    if (instructorList) {
-                        instructorList.innerHTML = '';
-                        instructors.forEach(instructor => {
-                            const option = document.createElement('option');
-                            option.value = instructor.nameContact;
-                            option.setAttribute('data-id', instructor.idContact);
-                            instructorList.appendChild(option);
-                        });
-                    }
-                },
-                error: function () {
-                    alert('Ошибка при загрузке списка преподавателей');
-                }
-            });
-        }
-
-        // Обработка кнопки поиска группы (для Админа)
-        const searchGroupBtn = document.getElementById("searchGroupBtn");
-        if (searchGroupBtn) {
-            searchGroupBtn.addEventListener("click", function () {
-                const groupNumber = document.getElementById("searchGroupInput").value.trim();
-
-                // Отображаем индикатор загрузки во время поиска
-                document.getElementById("loader").style.display = "block";
-                document.getElementById("contentContainer").style.display = "none";
-
-                $.ajax({
-                    url: '/Shared/FilterClasses',
-                    type: 'GET',
-                    data: { groupNumber: groupNumber },
-                    success: function (data) {
-                        $('#classesTableContainer').html(data);
-
-                        // Обновляем отображение типов занятий после обновления таблицы
-                        updateLessonTypes();
-
-                        // Скрываем индикатор загрузки и отображаем контент
-                        document.getElementById("loader").style.display = "none";
-                        document.getElementById("contentContainer").style.display = "block";
-                    },
-                    error: function () {
-                        alert('Ошибка при поиске занятий.');
-                        document.getElementById("loader").style.display = "none";
-                        document.getElementById("contentContainer").style.display = "block";
-                    }
-                });
-            });
-        }
-
-        // Валидация формы и отправка данных для создания/обновления занятия
-        const createForm = document.getElementById("createClassForm");
-        if (createForm) {
-            createForm.addEventListener("submit", function (event) {
-                event.preventDefault();
-                event.stopPropagation();
-
-                if (createForm.checkValidity()) {
-                    const classId = document.getElementById('classId').value;
-                    if (classId) {
-                        updateClass(classId);
-                    } else {
-                        saveClass();
-                    }
-                }
-                createForm.classList.add("was-validated");
-            }, false);
-        }
-
-        // Скрываем индикатор загрузки и отображаем контент после инициализации
-        document.getElementById('loader').style.display = 'none';
-        document.getElementById('contentContainer').style.display = 'block';
-    }
-
-    // Функция для открытия модального окна создания занятия
-    window.openCreateClassModal = function () {
-        resetForm();
-        document.getElementById('createClassModalLabel').textContent = 'Создать Занятие';
-        const modal = new bootstrap.Modal(document.getElementById("createClassModal"));
-        modal.show();
-    }
-
-    // Функция для открытия модального окна редактирования занятия
-    window.openEditClassModal = function (classId) {
-        resetForm();
-        const modal = new bootstrap.Modal(document.getElementById("createClassModal"));
-        modal.show();
-        loadClassData(classId);
-    }
-
-    // Функция для сохранения нового занятия
-    function saveClass() {
-        const subjectName = document.getElementById('subjectName').value.trim();
-        const semester = document.getElementById('semester').value;
-        const academicYear = document.getElementById('academicYear').value.trim();
-        const lessonTypeElement = document.querySelector('#lessonTypes input[type="radio"]:checked');
-        const instructorName = document.getElementById('instructorName').value.trim();
-        const groupNumber = document.getElementById('groupNumber').value.trim();
-
-        if (!lessonTypeElement) {
-            alert('Пожалуйста, выберите тип занятия.');
-            return;
-        }
-
-        const lessonType = lessonTypeElement.value;
-
-        $.ajax({
-            url: '/Shared/CreateClass',
-            type: 'POST',
-            data: {
-                subjectName: subjectName,
-                semester: semester,
-                academicYear: academicYear,
-                lessonType: lessonType,
-                instructorName: instructorName,
-                groupNumber: groupNumber
-            },
-            success: function (response) {
-                if (response.success) {
-                    location.reload();
-                } else {
-                    alert(response.message || 'Ошибка при создании занятия.');
-                }
-            },
-            error: function () {
-                alert('Ошибка при создании занятия');
-            }
+        document.querySelectorAll('.lesson-type').forEach(el => {
+            const type = el.getAttribute('data-lesson-type')?.toLowerCase();
+            el.textContent = lessonTypeMapping[type] || 'Неизвестный тип';
         });
     }
-
-    // Функция для обновления существующего занятия
-    function updateClass(classId) {
-        const subjectName = document.getElementById('subjectName').value.trim();
-        const semester = document.getElementById('semester').value;
-        const academicYear = document.getElementById('academicYear').value.trim();
-        const lessonTypeElement = document.querySelector('#lessonTypes input[type="radio"]:checked');
-        const instructorName = document.getElementById('instructorName').value.trim();
-        const groupNumber = document.getElementById('groupNumber').value.trim();
-
-        if (!lessonTypeElement) {
-            alert('Пожалуйста, выберите тип занятия.');
-            return;
-        }
-
-        const lessonType = lessonTypeElement.value;
-
-        $.ajax({
-            url: '/Shared/UpdateClass',
-            type: 'POST',
-            data: {
-                classId: classId,
-                subjectName: subjectName,
-                semester: semester,
-                academicYear: academicYear,
-                lessonType: lessonType,
-                instructorName: instructorName,
-                groupNumber: groupNumber
-            },
-            success: function (response) {
-                if (response.success) {
-                    location.reload();
-                } else {
-                    alert(response.message || 'Ошибка при обновлении занятия.');
-                }
-            },
-            error: function () {
-                alert('Ошибка при обновлении занятия');
-            }
-        });
-    }
-
-    // Функция для загрузки данных занятия в форму редактирования
-    function loadClassData(classId) {
-        $.ajax({
-            url: '/Shared/GetClass',
-            type: 'GET',
-            data: {
-                classId: classId
-            },
-            success: function (classData) {
-                if (classData) {
-                    document.getElementById('classId').value = classData.classId;
-                    document.getElementById('subjectName').value = classData.subject || '';
-                    document.getElementById('semester').value = classData.semester || '';
-                    document.getElementById('academicYear').value = classData.academicYear || '';
-                    document.getElementById('groupNumber').value = classData.groupNumber || '';
-
-                    const selectedRadio = document.querySelector(`#lessonTypes input[type="radio"][value="${classData.lessonType.toLowerCase()}"]`);
-                    if (selectedRadio) {
-                        selectedRadio.checked = true;
-                    }
-
-                    document.getElementById('instructorName').value = classData.instructorName || '';
-
-                    document.getElementById('createClassModalLabel').textContent = 'Редактировать Занятие';
-
-                } else {
-                    alert('Ошибка: данные занятия не найдены.');
-                }
-            },
-            error: function () {
-                alert('Ошибка при загрузке данных занятия');
-            }
-        });
-    }
-
-    // Сброс формы перед открытием модального окна
-    function resetForm() {
-        const createForm = document.getElementById("createClassForm");
-        if (createForm) {
-            createForm.classList.remove("was-validated");
-            createForm.reset();
-        }
-        document.getElementById('classId').value = '';
-        document.getElementById('createClassModalLabel').textContent = 'Создать Занятие';
-    }
-
-    // Функция для удаления занятия
-    window.deleteClass = function (classId) {
-        if (confirm('Вы уверены, что хотите удалить занятие?')) {
-            $.ajax({
-                url: '/Shared/DeleteClass',
-                type: 'POST',
-                data: { classId: classId },
-                success: function (result) {
-                    if (result.success) {
-                        location.reload();
-                    } else {
-                        alert(result.message || 'Ошибка при удалении занятия.');
-                    }
-                },
-                error: function () {
-                    alert('Ошибка при удалении занятия.');
-                }
-            });
-        }
-    }
-
 });

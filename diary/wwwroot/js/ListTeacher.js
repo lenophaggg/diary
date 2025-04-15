@@ -1,64 +1,19 @@
 ﻿// ListTeacher.js
 
-function fetchTeachers(searchTerm) {
-    // Показать индикатор загрузки и скрыть основной контейнер
-    document.getElementById("loader").style.display = "block";
-    document.querySelector(".container-fluid").style.display = "none";
-
+function fetchTeachers(searchTerm, page = 1, pageSize = 10) {
     $.ajax({
         url: '/Admin/FilterTeachers',
         type: 'GET',
-        data: { searchTerm: searchTerm },
+        data: { searchTerm: searchTerm, page: page, pageSize: pageSize },
         success: function (data) {
-            // Обновить содержимое таблицы преподавателей
             $('#teachersTableContainer').html(data);
-
-            // Проверить, все ли изображения загружены
-            checkImagesLoaded();
+            // Больше не нужно скрывать/показывать контейнер, так как loader удален
         },
         error: function (xhr, status, error) {
             alert('Ошибка при поиске преподавателей.');
             console.error('AJAX Error:', status, error);
-            // Скрыть индикатор загрузки и показать основной контейнер
-            document.getElementById("loader").style.display = "none";
-            document.querySelector(".container-fluid").style.display = "block";
         }
     });
-}
-
-/**
- * Функция для проверки, все ли изображения загружены.
- */
-function checkImagesLoaded() {
-    var container = document.querySelector(".container-fluid");
-    var images = container.querySelectorAll("img");
-    var totalImages = images.length;
-    var loadedImages = 0;
-
-    function checkAllImagesLoaded() {
-        loadedImages++;
-        if (loadedImages === totalImages) {
-            // Скрыть индикатор загрузки и показать основной контейнер
-            document.getElementById("loader").style.display = "none";
-            container.style.display = "block";
-        }
-    }
-
-    if (totalImages > 0) {
-        // Добавить обработчики событий для каждого изображения
-        images.forEach(function (img) {
-            if (img.complete) {
-                checkAllImagesLoaded();
-            } else {
-                img.addEventListener("load", checkAllImagesLoaded);
-                img.addEventListener("error", checkAllImagesLoaded);
-            }
-        });
-    } else {
-        // Если изображений нет, сразу показать основной контейнер
-        document.getElementById("loader").style.display = "none";
-        container.style.display = "block";
-    }
 }
 
 /**
@@ -114,7 +69,7 @@ $(document).ready(function () {
 
     // Обработчик нажатия клавиши Enter в поле поиска
     $('#searchTeacherInput').on('keypress', function (e) {
-        if (e.which == 13) { // 13 - код клавиши Enter
+        if (e.which === 13) { // 13 - код клавиши Enter
             $('#searchTeacherBtn').click();
             return false; // Предотвращает отправку формы
         }
@@ -124,7 +79,4 @@ $(document).ready(function () {
     $('#addTeacherModal').on('hidden.bs.modal', function () {
         $('#addTeacherForm')[0].reset();
     });
-
-    // Логика для отображения страницы после загрузки всех изображений при начальной загрузке
-    checkImagesLoaded();
 });

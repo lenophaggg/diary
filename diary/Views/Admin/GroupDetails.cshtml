@@ -1,4 +1,5 @@
 ﻿@model diary.ViewModels.GroupDetailsViewModel
+@using System.Globalization
 
 @{
     ViewData["Title"] = "Group Details";
@@ -96,54 +97,219 @@
         </div>
     </div>
 
-    <!-- Форма для фильтрации -->
-    <form method="get" asp-action="GroupDetails" asp-route-id="@Model.GroupNumber" class="mb-4 needs-validation" novalidate>
-        <div class="row">
-            <div class="col-md-4 mb-3">
-                <label for="academicYear" class="form-label">Учебный год</label>
-                <input type="text" class="form-control" id="academicYear" name="academicYear" pattern="^\d{4}/\d{4}$" maxlength="9" placeholder="2024/2025" value="@ViewBag.AcademicYear" />
-                <div class="invalid-feedback">Введите учебный год в формате гггг/гггг</div>
+    <!-- Новый блок управления группой -->
+    <div class="rounded p-4 mt-4 bg-info w-50 bg-opacity-10">
+        <h3 class="text-primary">
+            Управление группой
+            <span title="Действия применяются ко всем студентам группы!" style="cursor: pointer;" class="text-danger fw-bold ms-2">⚠</span>
+        </h3>
+        <form id="groupManagementForm">
+            <div class="row align-items-end">
+                <div class="col-md-8 mb-3">
+                    <label for="newGroupNumber" class="form-label">Перенести группу в:</label>
+                    <input type="text" id="newGroupNumber" name="newGroupNumber" class="form-control" placeholder="Новый номер группы" />
+                </div>
+                <div class="col-md-4 mb-3 d-flex align-items-end">
+                    <button type="button" class="btn btn-primary" onclick="moveGroup()">Перенести</button>
+                </div>
             </div>
-            <div class="col-md-4 mb-3">
-                <label for="semester" class="form-label">Семестр</label>
-                <input type="number" class="form-control" id="semester" name="semester" min="1" max="2" placeholder="1" value="@ViewBag.Semester" />
-                <div class="invalid-feedback">Введите семестр - 1 (осенний) или 2 (весенний)</div>
-            </div>
-            <div class="col-md-4 align-self-end mb-3">
-                <button type="submit" class="btn btn-primary">Фильтровать</button>
-            </div>
-        </div>
-    </form>
-
-    <!-- Отчет по посещаемости -->
+            <button type="button" class="btn btn-danger me-2" onclick="clearGroup()">
+                <i class="fas fa-trash"></i> Исключить студентов из группы
+            </button>
+            <button type="button" class="btn btn-danger" onclick="deleteGroup()">
+                <i class="fa-solid fa-xmark"></i> Удалить группу
+            </button>
+            <span id="groupUpdateStatus" class="ms-3 text-success fw-semibold"></span>
+        </form>
+    </div>
+   
+    <!-- Сводный журнал посещаемости -->
     <div class="row mt-4">
         <div class="col-12">
             <div class="card">
                 <div class="card-header bg-info text-white">
-                    <h2 class="card-title mb-0">Отчет по посещаемости</h2>
+                    <h2 class="card-title mb-0">Сводный журнал посещаемости</h2>
                 </div>
-                <div class="card-body">
-                    @if (Model.AttendanceReports.Any())
+                <div class="card-body" style="overflow-y: auto;">
+                    @if (Model.AttendanceJournal.Any())
                     {
-                        <table class="table table-bordered">
+                        <!-- Получаем уникальные месяцы -->
+                        var months = Model.AttendanceJournal
+                        .Select(a => new { Year = a.Date.Year, Month = a.Date.Month })
+                        .Distinct()
+                        .OrderBy(m => m.Year).ThenBy(m => m.Month)
+                        .Select(m => new { Year = m.Year, Month = m.Month, MonthName = $"{CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m.Month)} {m.Year}" })
+                        .ToList();
+
+                        <!-- Получаем уникальные даты и предметы/типы для каждого месяца -->
+                        var dateSubjectGroups = months.ToDictionary(
+                        m => m,
+                        m => Model.AttendanceJournal
+                        .Where(a => a.Date.Year == m.Year && a.Date.Month == m.Month)
+                        .GroupBy(a => a.Date)
+                        .Select(g => new
+                        {
+                            Date = g.Key,
+                            Sessions = g.GroupBy(a => a.SessionNumber)
+                        .Select(s => new
+                        {
+                            SessionNumber = s.Key,
+                            Subjects = s.Select(a => new { a.SubjectName, a.LessonType })
+                        .Distinct()
+                        .OrderBy(s => s.SubjectName)
+                        .ThenBy(s => s.LessonType)
+                        .ToList()
+                        })
+                        .OrderBy(s => s.SessionNumber)
+                        .ToList()
+                        })
+                        .OrderBy(g => g.Date)
+                        .ToList()
+                        );
+
+                        <table class="table table-bordered" style="border-collapse: collapse; text-align: center;">
                             <thead class="thead-dark">
                                 <tr>
-                                    <th scope="col">ФИО студента</th>
-                                    <th scope="col">Название предмета</th>
-                                    <th scope="col">Учебный год</th>
-                                    <th scope="col">Семестр</th>
-                                    <th scope="col">Процент посещаемости</th>
+                                    <th scope="col" rowspan="3">ФИО студента</th>
+                                    @foreach (var month in months)
+                                    {
+                                        var totalDateCols = dateSubjectGroups[month].Sum(d => d.Sessions.Sum(s => s.Subjects.Count));
+                                        <th scope="col" colspan="@(totalDateCols + 1)" style="text-align: center;">@month.MonthName</th> <!-- +1 для столбца процента -->
+                                    }
+                                </tr>
+                                <tr>
+                                    @foreach (var month in months)
+                                    {
+                                        foreach (var dateGroup in dateSubjectGroups[month])
+                                        {
+                                            var totalSessionCols = dateGroup.Sessions.Sum(s => s.Subjects.Count);
+                                            <th scope="col" colspan="@totalSessionCols" style="text-align: center;">@dateGroup.Date.ToString("dd.MM.yy")</th>
+                                        }
+                                        <th scope="col" rowspan="2" style="height: 100px; width: 50px; text-align: center; border: 1px solid #dee2e6;">Процент за @month.MonthName</th>
+                                    }
+                                </tr>
+                                <tr>
+                                    @foreach (var month in months)
+                                    {
+                                        foreach (var dateGroup in dateSubjectGroups[month])
+                                        {
+                                            foreach (var session in dateGroup.Sessions)
+                                            {
+                                                foreach (var subject in session.Subjects)
+                                                {
+                                                    <th scope="col" style="writing-mode: vertical-rl; transform: rotate(180deg); height: 300px; width: 150px; text-align: center; border: 1px solid #dee2e6;">
+                                                        @if (subject.SubjectName.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Length > 5)
+                                                        {
+                                                            @(string.Join(" ", subject.SubjectName.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Take(4)) + "...")
+                                                        }
+                                                        else
+                                                        {
+                                                            @subject.SubjectName
+                                                        }
+                                                        (@session.SessionNumber) / <span class="lesson-type" data-lesson-type="@subject.LessonType"></span>
+                                                    </th>
+                                                }
+                                            }
+                                        }
+                                    }
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var report in Model.AttendanceReports)
+                                @foreach (var student in Model.Students)
                                 {
                                     <tr>
-                                        <td>@report.StudentName</td>
-                                        <td>@report.SubjectName</td>
-                                        <td>@report.AcademicYear</td>
-                                        <td>@report.Semester</td>
-                                        <td>@report.AttendancePercentage.ToString("F2")%</td>
+                                        <td style="max-width: 400px; text-align: center; white-space: normal;">@student.Name</td>
+                                        @foreach (var month in months)
+                                        {
+
+
+                                            int confirmedCount = 0;
+                                            int excusedAbsenceCount = 0;
+                                            int totalClasses = 0;
+
+                                            // Получаем все записи для студента за месяц
+                                            var monthlyData = Model.AttendanceJournal
+                                            .Where(a => a.StudentId == student.StudentId.ToString()
+                                            && a.Date.Year == month.Year
+                                            && a.Date.Month == month.Month)
+                                            .ToList();
+
+                                            // Подсчет общего числа занятий, подтвержденных посещений и оправданных отсутствий
+                                            foreach (var record in monthlyData)
+                                            {
+                                                totalClasses++; // Увеличиваем только если запись существует
+                                                if (record.IsPresent)
+                                                {
+                                                    confirmedCount++;
+                                                }
+                                                else if (record.IsExcusedAbsence)
+                                                {
+                                                    excusedAbsenceCount++;
+                                                }
+                                            }
+
+                                            int effectiveClasses = totalClasses - excusedAbsenceCount; // Исключаем оправданные отсутствия
+                                            double attendancePercentage = effectiveClasses > 0
+                                            ? (double)confirmedCount / effectiveClasses * 100
+                                            : 0;
+
+                                            string cellStyle = "background-color: #f8d7da;"; // Красный по умолчанию (< 50%)
+
+                                            if (attendancePercentage >= 85)
+                                            {
+                                                cellStyle = "background-color: #d4edda;"; // Зеленый
+                                            }
+                                            else if (attendancePercentage >= 60)
+                                            {
+                                                cellStyle = "background-color: #fff3cd;"; // Желтый
+                                            }
+                                            else if (attendancePercentage >= 50)
+                                            {
+                                                cellStyle = "background-color: #e2e3e5;"; // Серый
+                                            }
+
+                                            foreach (var dateGroup in dateSubjectGroups[month])
+                                            {
+                                                foreach (var session in dateGroup.Sessions)
+                                                {
+                                                    foreach (var subject in session.Subjects)
+                                                    {
+                                                        var attendance = Model.AttendanceJournal
+                                                        .FirstOrDefault(a => a.StudentId == student.StudentId.ToString()
+                                                        && a.Date == dateGroup.Date
+                                                        && a.SessionNumber == session.SessionNumber
+                                                        && a.SubjectName == subject.SubjectName
+                                                        && a.LessonType == subject.LessonType);
+                                                        <td style="border: 1px solid #dee2e6; padding: 5px;">
+                                                            @if (attendance != null)
+                                                            {
+                                                                @if (attendance.IsPresent)
+                                                                {
+                                                                    <span style="color: green">+</span>
+                                                                }
+                                                                else if (attendance.IsExcusedAbsence)
+                                                                {
+                                                                    <span style="color: blue">У</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span style="color: red">Н</span>
+                                                                }
+                                                            }
+                                                            else
+                                                            {
+                                                                <span>N/A</span>
+                                                            }
+                                                        </td>
+                                                    }
+                                                }
+                                            }
+
+                                            <td class="text-center" style="max-width: 150px; @cellStyle">
+                                                @confirmedCount / @(effectiveClasses) (-@excusedAbsenceCount)
+                                                (@Math.Round(attendancePercentage, 1) %)
+                                            </td>
+                                        }
                                     </tr>
                                 }
                             </tbody>
@@ -160,80 +326,106 @@
         </div>
     </div>
 
-</div>
-
-<!-- Модальное окно для назначения старосты -->
-<div class="modal fade" id="assignGroupHeadModal" tabindex="-1" role="dialog" aria-labelledby="assignGroupHeadModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <form id="assignGroupHeadForm">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="assignGroupHeadModalLabel">Назначить старосту группы</h5>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="studentId">Выберите студента:</label>
-                        <select id="studentId" name="studentId" class="form-control">
-                            @foreach (var student in Model.Students)
-                            {
-                                <option value="@student.StudentId">@student.Name</option>
-                            }
-                        </select>
+    <!-- Модальное окно для назначения старосты -->
+    <div class="modal fade" id="assignGroupHeadModal" tabindex="-1" role="dialog" aria-labelledby="assignGroupHeadModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="assignGroupHeadForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="assignGroupHeadModalLabel">Назначить старосту группы</h5>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" onclick="assignGroupHead()">Назначить</button>
-                </div>
-            </form>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="studentId">Выберите студента:</label>
+                            <select id="studentId" name="studentId" class="form-control">
+                                @foreach (var student in Model.Students)
+                                {
+                                    <option value="@student.StudentId">@student.Name</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" onclick="assignGroupHead()">Назначить</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Модальное окно для добавления студента -->
-<div class="modal fade" id="addStudentModal" data-group-number="@Model.GroupNumber" tabindex="-1" role="dialog" aria-labelledby="addStudentModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <form id="addStudentForm">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addStudentModalLabel">Добавить студента</h5>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="studentName">ФИО студента:</label>
-                        <input type="text" id="studentName" name="studentName" class="form-control" required />
+    <!-- Модальное окно для добавления студента -->
+    <div class="modal fade" id="addStudentModal" data-group-number="@Model.GroupNumber" tabindex="-1" role="dialog" aria-labelledby="addStudentModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="addStudentForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addStudentModalLabel">Добавить студента</h5>
                     </div>
-                    <div class="form-group">
-                        <label for="universityStudentId">ISU ID студента:</label>
-                        <input type="text" id="universityStudentId" name="universityStudentId" class="form-control" required />
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="studentName">ФИО студента:</label>
+                            <input type="text" id="studentName" name="studentName" class="form-control" required />
+                        </div>
+                        <div class="form-group">
+                            <label for="universityStudentId">ISU ID студента:</label>
+                            <input type="text" id="universityStudentId" name="universityStudentId" class="form-control" required />
+                        </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" onclick="addStudent()">Добавить</button>
-                </div>
-            </form>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" onclick="addStudent()">Добавить</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
-</div>
 
-@section scripts {
-    <script src="~/js/GroupDetails.js"></script>
+    @section scripts {
+        <script src="~/js/GroupDetails.js"></script>
 
-    <script>
-        // Валидация формы
-        (function () {
-            'use strict';
-            window.addEventListener('load', function () {
-                var forms = document.getElementsByClassName('needs-validation');
-                Array.prototype.filter.call(forms, function (form) {
-                    form.addEventListener('submit', function (event) {
-                        if (form.checkValidity() === false) {
-                            event.preventDefault();
-                            event.stopPropagation();
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const lessonTypes = [
+                    { value: 'laboratoryworks', label: 'Лаб' },
+                    { value: 'practicalclasses', label: 'Пр' },
+                    { value: 'seminars', label: 'Сем' },
+                    { value: 'colloquiums', label: 'Кол' },
+                    { value: 'lectures', label: 'Лек' },
+                    { value: 'consultations', label: 'Конс' }
+                ];
+
+                // Обработка всех элементов с классом .lesson-type
+                const lessonTypeElements = document.querySelectorAll('.lesson-type');
+                if (lessonTypeElements) {
+                    lessonTypeElements.forEach(element => {
+                        const lessonTypeValue = element.getAttribute('data-lesson-type');
+                        const matchedLessonType = lessonTypes.find(type => type.value === lessonTypeValue);
+                        if (matchedLessonType) {
+                            element.textContent = matchedLessonType.label;
+                        } else {
+                            element.textContent = 'Неизвестный тип занятия'; // По умолчанию, если тип не найден
                         }
-                        form.classList.add('was-validated');
-                    }, false);
-                });
-            }, false);
-        })();
-    </script>
-}
+                    });
+                }
+
+                const addColumnButton = document.getElementById("addColumnButton");
+                if (addColumnButton) {
+                    addColumnButton.addEventListener("click", addSessionColumn);
+                }
+
+                const attendanceTable = document.getElementById("attendanceTable");
+                if (attendanceTable) {
+                    attendanceTable.addEventListener("click", handleAttendanceActions);
+                }
+
+                // Обработка кнопки "Экспорт в Excel" для администраторов
+                const exportButton = document.getElementById("exportToExcel");
+                if (exportButton) {
+                    exportButton.addEventListener("click", function (event) {
+                        event.preventDefault();
+                        window.location.href = exportButton.getAttribute('data-export-url');
+                    });
+                }
+            });</script>
+
+        
+    }

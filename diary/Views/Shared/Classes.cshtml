@@ -32,21 +32,35 @@
        
     <div class="mb-3">
         <button type="button" class="btn btn-success" onclick="openCreateClassModal()">Добавить предмет</button>
-    </div>    
+    </div>
 
     @if (User.IsInRole("Admin"))
     {
-        <!-- Поле для ввода номера группы и кнопка поиска -->
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div class="input-group w-50">
-                <input type="text" id="searchGroupInput" class="form-control" placeholder="Введите номер группы">
-                <div class="input-group-append">
-                    <button id="searchGroupBtn" class="btn btn-primary">
-                        <i class="fa fa-search"></i> Поиск
-                    </button>
+        <form id="filterForm" class="row g-3 needs-validation" novalidate>
+            <div class="col-md-3">
+                <label for="searchGroupInput" class="form-label">Группа</label>
+                <input type="text" id="searchGroupInput" class="form-control" placeholder="Введите номер группы" />
+            </div>
+            <div class="col-md-2">
+                <label for="searchSemesterInput" class="form-label">Семестр</label>
+                <input type="number" id="searchSemesterInput" class="form-control" placeholder="Семестр" required min="1" max="2" value="@ViewBag.Semester" />
+                <div class="invalid-feedback">
+                    Введите семестр - 1 (осенний) или 2 (весенний)
                 </div>
             </div>
-        </div>
+            <div class="col-md-3">
+                <label for="searchAcademicYearInput" class="form-label">Учебный год</label>
+                <input type="text" id="searchAcademicYearInput" class="form-control" placeholder="Учебный год" required pattern="^\d{4}/\d{4}$" maxlength="9" value="@ViewBag.AcademicYear" />
+                <div class="invalid-feedback">
+                    Введите учебный год в формате гггг/гггг
+                </div>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button id="searchGroupBtn" type="submit" class="btn btn-primary w-100">
+                    <i class="fa fa-search"></i> Поиск
+                </button>
+            </div>
+        </form>
     }
 
     <!-- Контейнер для таблицы -->
@@ -84,30 +98,27 @@
                         </datalist>
                         <div class="invalid-feedback">Выберите преподавателя</div>
                     </div>
-
-                    <div class="mb-3">
-                        <label for="groupNumber" class="form-label">Группа</label>
-                        @if (User.IsInRole("GroupHead"))
-                        {
-                            <input type="text" class="form-control" id="groupNumber" name="groupNumber" value="@ViewBag.GroupNumber" readonly />
-                        }
-                        else
-                        {
+                    @if (!User.IsInRole("GroupHead"))
+                    {
+                        <div class="mb-3">
+                            <label for="groupNumber" class="form-label">Группа</label>
                             <input type="text" class="form-control" id="groupNumber" name="groupNumber" required />
                             <div class="invalid-feedback">Введите номер группы</div>
-                        }
-                    </div>
+                        </div>
 
-                    <div class="mb-3">
-                        <label for="semester" class="form-label">Семестр</label>
-                        <input type="number" class="form-control" id="semester" name="semester" required min="1" max="2" placeholder="1" />
-                        <div class="invalid-feedback">Введите семестр - 1 (осенний) или 2 (весенний)</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="academicYear" class="form-label">Учебный год</label>
-                        <input type="text" class="form-control" id="academicYear" name="academicYear" required pattern="^\d{4}/\d{4}$" maxlength="9" placeholder="2024/2025" />
-                        <div class="invalid-feedback">Введите учебный год в формате гггг/гггг</div>
-                    </div>
+                        <div class="mb-3">
+                            <label for="semester" class="form-label">Семестр</label>
+                            <input type="number" class="form-control" id="semester" name="semester" required min="1" max="2" placeholder="1" />
+                            <div class="invalid-feedback">Введите семестр - 1 (осенний) или 2 (весенний)</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="academicYear" class="form-label">Учебный год</label>
+                            <input type="text" class="form-control" id="academicYear" name="academicYear" required pattern="^\d{4}/\d{4}$" maxlength="9" placeholder="2024/2025" />
+                            <div class="invalid-feedback">Введите учебный год в формате гггг/гггг</div>
+                        </div>
+                    }
+                   
                     <div class="mb-3" id="lessonTypes">
                         <label class="form-label">Тип занятия</label>
                         <!-- Радио-кнопки будут загружены через JavaScript -->
