@@ -5,38 +5,71 @@ services:
     build:
       context: .
       dockerfile: diary/Dockerfile
-    container_name: dotnet_app
+    container_name: diary_api           # лучше уникальное имя
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_HTTPS_PORTS=8081
+      - ASPNETCORE_URLS=http://+:8081   # внутри контейнера
       - ConnectionStrings__applicationDbContextConnection=Host=db;Database=interactiveboardentities;Username=postgres;Password=228228228
       - ConnectionStrings__diaryDbContextConnection=Host=db;Database=diaryentities;Username=postgres;Password=228228228
       - ConnectionStrings__DiaryIdentityDbContextConnection=Host=db;Database=diaryidentity;Username=postgres;Password=228228228
     volumes:
-      - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
+      - ${HOME}/.microsoft/usersecrets:/home/app/.microsoft/usersecrets:ro
+    depends_on:
+      - db
+    expose:                              # порт доступен только другим сервисам Compose
+      - "8081"
     networks:
-      - my_network
-    ports:
-      - "8081:8081"  # Проброс порта контейнера на хост
+      - app_net
 
   db:
-    image: postgres:latest
+    image: postgres:16
     container_name: postgres_db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 228228228
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
     networks:
-      - my_network
-    restart: always  
+      - app_net
+    restart: always
+
+  # --- обратный прокси + SSL (коротко) ------------------
+  nginx:
+    image: nginx:alpine
+    container_name: reverse_proxy
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - diary
+    networks:
+      - app_net
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    command: >
+      certonly --webroot --webroot-path=/var/www/certbot
+      --email you@example.com --agree-tos --no-eff-email
+      -d fdit-diary.ru -d www.fdit-diary.ru
+    networks:
+      - app_net
+# --------------------------------------------------------
 
 networks:
-  my_network:
+  app_net:
     driver: bridge
 
 volumes:
   postgres_data:
+  certbot-etc:
+  certbot-var:
