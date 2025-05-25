@@ -17,7 +17,7 @@ services:
     expose:                              # порт доступен только другим сервисам Compose
       - "8081"
     networks:
-      - app_net
+      - shared_db_net
 
   db:
     image: postgres:17
@@ -29,7 +29,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
     networks:
-      - app_net
+      - shared_db_net
     restart: always
 
   # --- обратный прокси + SSL (коротко) ------------------
@@ -47,7 +47,7 @@ services:
     depends_on:
       - diary
     networks:
-      - app_net
+      - shared_db_net
 
   certbot:
     image: certbot/certbot:latest
@@ -61,12 +61,12 @@ services:
       --email admin@fdit-diary.ru --agree-tos --no-eff-email
       -d fdit-diary.ru -d www.fdit-diary.ru
     networks:
-      - app_net
+      - shared_db_net
 # --------------------------------------------------------
 
 networks:
-  app_net:
-    driver: bridge
+  shared_db_net:
+    external: true
 
 volumes:
   postgres_data:
