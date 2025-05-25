@@ -1,7 +1,7 @@
 services:
   diary:
     # для локального DEV:
-    ports:
-      - "8081:8081"
+    # ports:
+    #   - "8081:8081"
     volumes:
       - ${HOME}/.aspnet/https:/home/app/.aspnet/https:ro

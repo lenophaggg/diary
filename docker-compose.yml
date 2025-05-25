@@ -1,11 +1,9 @@
-version: "3.8"
-
 services:
   diary:
     build:
       context: .
       dockerfile: diary/Dockerfile
-    container_name: diary_api           # лучше уникальное имя
+    container_name: diary_api           
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8081   # внутри контейнера
@@ -22,7 +20,7 @@ services:
       - app_net
 
   db:
-    image: postgres:16
+    image: postgres:17
     container_name: postgres_db
     environment:
       POSTGRES_USER: postgres
@@ -59,7 +57,7 @@ services:
       - ./certbot/www:/var/www/certbot
     command: >
       certonly --webroot --webroot-path=/var/www/certbot
-      --email you@example.com --agree-tos --no-eff-email
+      --email admin@fdit-diary.ru --agree-tos --no-eff-email
       -d fdit-diary.ru -d www.fdit-diary.ru
     networks:
       - app_net
