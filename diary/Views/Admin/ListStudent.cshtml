@@ -1,0 +1,107 @@
+﻿@model IEnumerable<diary.Models.StudentData>
+
+@{
+    ViewData["Title"] = "Список студентов";
+
+    
+    var groups = ViewBag.Groups as List<diary.Models.GroupData>; // список групп для выпадающего списка
+}
+
+
+<div class="container-fluid mt-4">
+    <h1 class="text-center">Список студентов</h1>
+
+    <div class="table-responsive mt-4" id="studentsTableContainer">
+        <table class="table table-bordered table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Университетский ID</th>
+                    <th>ФИО</th>
+                    <th>Группа</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var student in Model)
+                {
+                    <tr id="student-row-@student.StudentId">
+                        <td>@student.StudentId</td>
+                        <td>@student.UniversityStudentId</td>
+                        <td>@student.Name</td>
+
+                        @{
+                            bool groupExists = groups.Any(g => g.Number == student.GroupNumber);
+                        }
+
+
+                        <td>
+                            <select class="form-control group-select"
+                                    data-student-id="@student.StudentId"
+                                    onchange="changeGroup(this)">
+                                <!-- опция «нет группы» -->
+                                <option value=""
+                                        selected="@( !groupExists )">
+                                    — нет группы —
+                                </option>
+
+                                @foreach (var group in groups)
+                                {
+                                    <option value="@group.Number"
+                                            selected="@(group.Number == student.GroupNumber)">
+                                        @group.Number
+                                    </option>
+                                }
+                            </select>
+                        </td>
+                        <td>
+                            <button class="btn btn-danger btn-sm" onclick="deleteStudent(@student.StudentId)">
+                                <i class="fa fa-trash"></i> Удалить
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section scripts {
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function deleteStudent(studentId) {
+            if (!confirm('Удалить этого студента?')) return;
+            $.ajax({
+                url: '/Admin/DeleteStudent',
+                type: 'POST',
+                data: { id: studentId },
+                headers: { 'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val() },
+                success: function (response) {
+                    if (response.success) {
+                        $('#student-row-' + studentId).remove();
+                    } else {
+                        alert(response.message || 'Ошибка при удалении');
+                    }
+                },
+                error: function () { alert('Ошибка удаления'); }
+            });
+        }
+
+        function changeGroup(selectElem) {
+            var studentId = $(selectElem).data('student-id');
+            var newGroup = $(selectElem).val();
+            $.ajax({
+                url: '/Admin/ChangeStudentGroup',
+                type: 'POST',
+                data: { id: studentId, group: newGroup },
+                headers: { 'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val() },
+                success: function (response) {
+                    if (!response.success) {
+                        alert(response.message || 'Ошибка изменения группы');
+                    }
+                },
+                error: function () { alert('Ошибка при изменении группы'); }
+            });
+        }
+    </script>
+}

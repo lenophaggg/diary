@@ -177,6 +177,48 @@ namespace diary.Controllers
             return View(model);
         }
 
+        public async Task<IActionResult> ListStudent()
+        {
+            // Студенты – из DiaryDbContext
+            var students = await _diaryDbContext.Students
+                .OrderBy(s => s.Name)
+                .ToListAsync();
+
+            // Группы – из ApplicationDbContext
+            var groups = await _applicationDbContext.Groups
+                .OrderBy(g => g.Number)
+                .ToListAsync();
+
+            ViewBag.Groups = groups;
+            return View(students);
+        }
+
+        // Ajax для удаления
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteStudent(int id)
+        {
+            var student = await _diaryDbContext.Students.FindAsync(id);
+            if (student == null)
+                return Json(new { success = false, message = "Студент не найден" });
+            _diaryDbContext.Students.Remove(student);
+            await _diaryDbContext.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+
+        // Ajax для смены группы
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ChangeStudentGroup(int id, string group)
+        {
+            var student = await _diaryDbContext.Students.FindAsync(id);
+            if (student == null)
+                return Json(new { success = false, message = "Студент не найден" });
+            student.GroupNumber = group;
+            await _diaryDbContext.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+
         // Метод для отображения списка преподавателей
         [HttpGet]
         public async Task<IActionResult> ListTeacher(int page = 1, int pageSize = 100)
