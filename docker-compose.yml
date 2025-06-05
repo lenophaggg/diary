@@ -6,16 +6,20 @@ services:
     container_name: diary_api           
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:8081   # внутри контейнера
+      - ASPNETCORE_URLS=http://+:8081
       - ConnectionStrings__applicationDbContextConnection=Host=db;Database=interactiveboardentities;Username=postgres;Password=228228228
       - ConnectionStrings__diaryDbContextConnection=Host=db;Database=diaryentities;Username=postgres;Password=228228228
       - ConnectionStrings__DiaryIdentityDbContextConnection=Host=db;Database=diaryidentity;Username=postgres;Password=228228228
-    volumes:
-      - ${HOME}/.microsoft/usersecrets:/home/app/.microsoft/usersecrets:ro
+    # Если реально используешь usersecrets — пропиши полный путь для Windows, например:
+    # volumes:
+    #   - C:/Users/user/.microsoft/usersecrets:/home/app/.microsoft/usersecrets:ro
+    # Или закомментируй/убери следующую строку, если не используешь:
+    # volumes:
+    #   - ${HOME}/.microsoft/usersecrets:/home/app/.microsoft/usersecrets:ro
     depends_on:
       - db
-    expose:                              # порт доступен только другим сервисам Compose
-      - "8081"
+    ports:
+      - "8081:8081"    # теперь порт будет доступен снаружи
     networks:
       - shared_db_net
 
@@ -23,8 +27,8 @@ services:
     image: postgres:17
     container_name: postgres_db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 228228228
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=228228228
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
@@ -70,5 +74,3 @@ networks:
 
 volumes:
   postgres_data:
-  certbot-etc:
-  certbot-var:
