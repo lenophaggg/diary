@@ -18,15 +18,18 @@ namespace diary.Services
         private readonly IConfiguration _configuration;
         private readonly IOptionsMonitor<ScheduleOptions> _scheduleOptions;
         private readonly ILogger<TypeWeekDownloadService> _logger;
+        private readonly IHttpClientFactory _httpClientFactory;
 
         public TypeWeekDownloadService(
             IConfiguration configuration,
             IOptionsMonitor<ScheduleOptions> scheduleOptions,
-            ILogger<TypeWeekDownloadService> logger)
+            ILogger<TypeWeekDownloadService> logger,
+            IHttpClientFactory httpClientFactory)
         {
             _configuration = configuration;
             _scheduleOptions = scheduleOptions;
             _logger = logger;
+            _httpClientFactory = httpClientFactory;
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
@@ -53,12 +56,13 @@ namespace diary.Services
                     string url = "https://www.smtu.ru/ru/listschedule/";
                     _logger.LogInformation("Отправляю запрос по URL: {Url}", url);
 
-                    using var httpClient = new HttpClient();
-                    var response = await httpClient.GetAsync(url, cancellationToken);
+                    var client = _httpClientFactory.CreateClient("Smtu");
+                    var response = await client.GetAsync(url, cancellationToken);
 
                     _logger.LogInformation("Ответ получен: {StatusCode}", response.StatusCode);
 
                     var html = await response.Content.ReadAsStringAsync(cancellationToken);
+
 
                     var doc = new HtmlDocument();
                     doc.LoadHtml(html);

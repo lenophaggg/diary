@@ -36,17 +36,16 @@ namespace diary
 
             builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
             {
-                options.SignIn.RequireConfirmedAccount = false; // ���������� ���������� ������������� ��������
-                options.User.RequireUniqueEmail = false; // ���������� ���������� ������������ email
+                options.SignIn.RequireConfirmedAccount = false; 
+                options.User.RequireUniqueEmail = false; 
 
-                // ��������� ������
+               
                 options.Password.RequireDigit = true;
                 options.Password.RequiredLength = 8;
                 options.Password.RequireNonAlphanumeric = false;
                 options.Password.RequireUppercase = true;
                 options.Password.RequireLowercase = true;
 
-                // ��������� ����������
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
                 options.Lockout.MaxFailedAccessAttempts = 3;
                 options.Lockout.AllowedForNewUsers = true;
@@ -60,7 +59,7 @@ namespace diary
                 options.LoginPath = "/Home/Login";
                 options.AccessDeniedPath = "/Home/AccessDenied";
                 options.SlidingExpiration = true;
-                options.ExpireTimeSpan = TimeSpan.FromDays(1); // ���������� ��������������� ���� �������� ���� �� ���������
+                options.ExpireTimeSpan = TimeSpan.FromDays(1); 
 
                 options.Events.OnValidatePrincipal = async context =>
                 {
@@ -73,7 +72,7 @@ namespace diary
                     }
                     else
                     {
-                        // ��������� ���� �������� ���� � ���������� ���
+                        
                         if (context.Properties.IsPersistent)
                         {
                             context.Properties.ExpiresUtc = DateTimeOffset.UtcNow.AddDays(30);
@@ -88,6 +87,11 @@ namespace diary
             });
             builder.Services.Configure<AcademicSettings>(
     builder.Configuration.GetSection("AcademicSettings"));
+
+            builder.Services.AddHttpClient("Smtu", c =>
+            {
+                c.BaseAddress = new Uri("https://www.smtu.ru/");
+            });
 
             builder.Services.AddHostedService<TypeWeekDownloadService>();
 

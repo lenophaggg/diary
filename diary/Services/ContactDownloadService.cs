@@ -20,14 +20,17 @@ namespace diary.Services
         private CancellationTokenSource _cts;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<ContactDownloadService> _logger;
-        private readonly HttpClient _httpClient;
+        private readonly IHttpClientFactory _httpClientFactory;
         private Task _executingTask;
 
-        public ContactDownloadService(IServiceProvider serviceProvider, ILogger<ContactDownloadService> logger)
+        public ContactDownloadService(
+            IServiceProvider serviceProvider,
+            ILogger<ContactDownloadService> logger,
+            IHttpClientFactory httpClientFactory)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
-            _httpClient = new HttpClient();
+            _httpClientFactory = httpClientFactory;
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
@@ -133,8 +136,24 @@ namespace diary.Services
 
         private async Task<List<string>> ParseDepartment(string universityUrl)
         {
-            var web = new HtmlWeb();
-            var doc = await Task.Run(() => web.Load(universityUrl));
+            var client = _httpClientFactory.CreateClient("Smtu");
+            HttpResponseMessage response;
+
+            try
+            {
+                response = await client.GetAsync(universityUrl);
+                response.EnsureSuccessStatusCode();
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "Ошибка при загрузке страницы {Url}", universityUrl);
+                return new List<string>();
+            }
+
+            var htmlContent = await response.Content.ReadAsStringAsync();
+            var doc = new HtmlDocument();
+            doc.LoadHtml(htmlContent);
+
             var sectionNode = doc.DocumentNode
                 .SelectSingleNode("//section[contains(@class, 'bg-body-secondary') and contains(@class, 'pb-5')]");
 
@@ -156,8 +175,23 @@ namespace diary.Services
         private async Task ParseUnitEmployeesAndSaveNameUniversityIdEmailPhoneImg(string unitLink)
         {
             var url = $"https://www.smtu.ru{unitLink}";
-            var web = new HtmlWeb();
-            var doc = await Task.Run(() => web.Load(url));
+            var client = _httpClientFactory.CreateClient("Smtu");
+            HttpResponseMessage response;
+
+            try
+            {
+                response = await client.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "Ошибка при загрузке {Url}", url);
+                return;
+            }
+
+            var htmlContent = await response.Content.ReadAsStringAsync();
+            var doc = new HtmlDocument();
+            doc.LoadHtml(htmlContent);
 
             var cardDivs = doc.DocumentNode.SelectNodes("//div[@id='faculty-per-content']//div[contains(@class, 'card') and contains(@class, 'bg-body-tertiary')]");
             if (cardDivs == null || cardDivs.Count == 0)
@@ -209,8 +243,8 @@ namespace diary.Services
 
                     try
                     {
-                        var response = await _httpClient.GetAsync($"https://isu.smtu.ru{bigImgPath}", HttpCompletionOption.ResponseHeadersRead);
-                        if (response.IsSuccessStatusCode)
+                        var responseImg = await client.GetAsync($"https://isu.smtu.ru{bigImgPath}", HttpCompletionOption.ResponseHeadersRead);
+                        if (responseImg.IsSuccessStatusCode)
                             finalImgPath = bigImgPath;
                         else
                             finalImgPath = smallImgPath;
@@ -270,8 +304,6 @@ namespace diary.Services
         private async Task UpdatePersonContacts()
         {
             _logger.LogInformation("Запуск UpdatePersonContacts...");
-            var web = new HtmlWeb();
-
             using (var scope = _serviceProvider.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -283,8 +315,25 @@ namespace diary.Services
                         continue;
 
                     var url = $"https://isu.smtu.ru/view_user_page/{personContact.UniversityIdContact}/";
-                    var htmlDoc = await Task.Run(() => web.Load(url));
-                    var mainNode = htmlDoc.DocumentNode
+                    var client = _httpClientFactory.CreateClient("Smtu");
+                    HttpResponseMessage response;
+
+                    try
+                    {
+                        response = await client.GetAsync(url);
+                        response.EnsureSuccessStatusCode();
+                    }
+                    catch (HttpRequestException ex)
+                    {
+                        _logger.LogError(ex, "Ошибка при загрузке {Url}", url);
+                        continue;
+                    }
+
+                    var htmlContent = await response.Content.ReadAsStringAsync();
+                    var doc = new HtmlDocument();
+                    doc.LoadHtml(htmlContent);
+
+                    var mainNode = doc.DocumentNode
                         .SelectSingleNode("//div[@class='warper container-fluid']/div[@class='panel panel-default']");
 
                     if (mainNode == null)
@@ -370,7 +419,6 @@ namespace diary.Services
         public void Dispose()
         {
             _cts?.Cancel();
-            _httpClient?.Dispose();
         }
     }
 }
